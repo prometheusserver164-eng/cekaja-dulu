@@ -4,6 +4,8 @@ import { Search, Link2, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useStore } from '@/store/useStore';
+import { analyzeProduct } from '@/lib/api/analyzeProduct';
+import { toast } from 'sonner';
 
 interface SearchBarProps {
   size?: 'default' | 'large';
@@ -14,13 +16,13 @@ export function SearchBar({ size = 'default' }: SearchBarProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [detectedPlatform, setDetectedPlatform] = useState<string | null>(null);
   const navigate = useNavigate();
-  const addRecentSearch = useStore((state) => state.addRecentSearch);
+  const { addRecentSearch, setCurrentAnalysis } = useStore();
 
   const detectPlatform = (inputUrl: string) => {
     if (inputUrl.includes('tokopedia.com')) return 'tokopedia';
-    if (inputUrl.includes('shopee.co.id')) return 'shopee';
+    if (inputUrl.includes('shopee.co.id') || inputUrl.includes('shopee.com')) return 'shopee';
     if (inputUrl.includes('bukalapak.com')) return 'bukalapak';
-    if (inputUrl.includes('lazada.co.id')) return 'lazada';
+    if (inputUrl.includes('lazada.co.id') || inputUrl.includes('lazada.com')) return 'lazada';
     return null;
   };
 
@@ -37,11 +39,28 @@ export function SearchBar({ size = 'default' }: SearchBarProps) {
     setIsLoading(true);
     addRecentSearch(url);
     
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    setIsLoading(false);
-    navigate('/analisis/1');
+    try {
+      const result = await analyzeProduct(url);
+      
+      if (result.success && result.data) {
+        setCurrentAnalysis(result.data);
+        toast.success('Analisis berhasil!', {
+          description: 'Data review berhasil dikumpulkan dari berbagai sumber.',
+        });
+        navigate(`/analisis/${result.data.product.id}`);
+      } else {
+        toast.error('Gagal menganalisis', {
+          description: result.error || 'Coba lagi dengan URL yang valid.',
+        });
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Terjadi kesalahan', {
+        description: 'Pastikan URL produk valid dan coba lagi.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const inputClasses = size === 'large' 
@@ -91,6 +110,11 @@ export function SearchBar({ size = 'default' }: SearchBarProps) {
           )}
         </Button>
       </div>
+      {isLoading && (
+        <p className="text-sm text-muted-foreground mt-3 text-center animate-pulse">
+          ⏳ Sedang mengumpulkan dan menganalisis review dari berbagai sumber...
+        </p>
+      )}
     </form>
   );
 }
