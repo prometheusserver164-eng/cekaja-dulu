@@ -17,6 +17,7 @@ import { Progress } from '@/components/ui/progress';
 import { useStore } from '@/store/useStore';
 import { mockAnalysisResult, formatPrice, getDiscountPercentage, AnalysisResult } from '@/lib/mockData';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { BestTimeToBuy } from '@/components/analysis/BestTimeToBuy';
 
 const Analysis = () => {
   const { id } = useParams();
@@ -346,6 +347,16 @@ const Analysis = () => {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Best Time to Buy Analysis */}
+          {data.priceHistory && data.priceHistory.length > 0 && (
+            <div className="mb-8" style={{ animationDelay: '420ms' }}>
+              <BestTimeToBuy 
+                priceHistory={data.priceHistory} 
+                currentPrice={data.product.price} 
+              />
+            </div>
           )}
 
           {/* Reviews Section */}
