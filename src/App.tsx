@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
+import { DynamicFavicon } from "@/components/DynamicFavicon";
 import Index from "./pages/Index";
 import Analysis from "./pages/Analysis";
 import Compare from "./pages/Compare";
@@ -19,6 +20,7 @@ const App = () => (
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <DynamicFavicon />
         <Toaster />
         <Sonner />
         <BrowserRouter>
