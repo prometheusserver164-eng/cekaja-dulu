@@ -111,9 +111,10 @@ export function SearchBar({ size = 'default' }: SearchBarProps) {
         </Button>
       </div>
       {isLoading && (
-        <p className="text-sm text-muted-foreground mt-3 text-center animate-pulse">
-          ⏳ Sedang mengumpulkan dan menganalisis review dari berbagai sumber...
-        </p>
+        <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground animate-pulse">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Sedang mengumpulkan dan menganalisis review dari berbagai sumber...</span>
+        </div>
       )}
     </form>
   );

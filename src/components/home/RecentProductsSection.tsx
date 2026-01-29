@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Search, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { recentProducts } from '@/lib/mockData';
 import { ProductCard } from '../ProductCard';
@@ -10,14 +10,19 @@ export function RecentProductsSection() {
       <div className="container mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h2 className="text-3xl md:text-4xl font-bold mb-2">
-              Produk yang Baru Dicek 🔍
-            </h2>
-            <p className="text-muted-foreground">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-primary" />
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold">
+                Produk yang Baru Dicek
+              </h2>
+            </div>
+            <p className="text-muted-foreground ml-12">
               Lihat apa yang sedang dicek orang lain
             </p>
           </div>
-          <Button variant="outline" className="group">
+          <Button variant="outline" className="group rounded-xl">
             <span>Lihat Semua</span>
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Button>
