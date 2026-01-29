@@ -5,6 +5,69 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// Extract product image from scraped HTML/markdown
+function extractProductImage(html: string, markdown: string, url: string): string | null {
+  // Common patterns for e-commerce product images
+  const imagePatterns = [
+    // Shopee CDN patterns
+    /https?:\/\/(?:down-id\.img\.susercontent\.com|cf\.shopee\.co\.id)\/file\/[a-zA-Z0-9_-]+(?:_tn)?/gi,
+    // Tokopedia CDN patterns
+    /https?:\/\/images\.tokopedia\.net\/img\/cache\/\d+(?:-square)?\/[^\s"'<>]+/gi,
+    // Generic high-res product image patterns
+    /https?:\/\/[^\s"'<>]+(?:product|item|goods)[^\s"'<>]*\.(?:jpg|jpeg|png|webp)/gi,
+  ];
+
+  // Try to find images in HTML first (more reliable)
+  for (const pattern of imagePatterns) {
+    const matches = html.match(pattern);
+    if (matches && matches.length > 0) {
+      // Return the first match (usually the main product image)
+      let imageUrl = matches[0];
+      // Clean up URL if needed
+      imageUrl = imageUrl.replace(/_tn$/, ''); // Remove thumbnail suffix for Shopee
+      console.log('Found product image from HTML:', imageUrl);
+      return imageUrl;
+    }
+  }
+
+  // Try markdown as fallback
+  for (const pattern of imagePatterns) {
+    const matches = markdown.match(pattern);
+    if (matches && matches.length > 0) {
+      let imageUrl = matches[0];
+      imageUrl = imageUrl.replace(/_tn$/, '');
+      console.log('Found product image from markdown:', imageUrl);
+      return imageUrl;
+    }
+  }
+
+  // Extract any image URL from og:image or similar meta tags
+  const ogImageMatch = html.match(/og:image[^>]*content=["']([^"']+)["']/i);
+  if (ogImageMatch) {
+    console.log('Found og:image:', ogImageMatch[1]);
+    return ogImageMatch[1];
+  }
+
+  // Try to find any large image
+  const anyImageMatch = html.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp)(?:\?[^\s"'<>]*)?/gi);
+  if (anyImageMatch) {
+    // Filter out small images (icons, etc.)
+    const largeImage = anyImageMatch.find(img => 
+      !img.includes('icon') && 
+      !img.includes('logo') && 
+      !img.includes('avatar') &&
+      !img.includes('flag') &&
+      (img.includes('product') || img.includes('item') || img.includes('cache') || img.includes('file'))
+    );
+    if (largeImage) {
+      console.log('Found potential product image:', largeImage);
+      return largeImage;
+    }
+  }
+
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -22,6 +85,8 @@ Deno.serve(async (req) => {
     }
 
     const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
+    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
+    
     if (!PERPLEXITY_API_KEY) {
       console.error('PERPLEXITY_API_KEY not configured');
       return new Response(
@@ -39,20 +104,62 @@ Deno.serve(async (req) => {
 
     console.log('Detected platform:', platform);
 
-    // Ask Perplexity to analyze the product
+    // Step 1: Use Firecrawl to scrape the actual product page for images
+    let scrapedImage: string | null = null;
+    
+    if (FIRECRAWL_API_KEY) {
+      console.log('Scraping product page with Firecrawl...');
+      try {
+        const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: url,
+            formats: ['html', 'markdown'],
+            onlyMainContent: false,
+            waitFor: 3000, // Wait for JS to load
+          }),
+        });
+
+        if (scrapeResponse.ok) {
+          const scrapeData = await scrapeResponse.json();
+          const html = scrapeData.data?.html || scrapeData.html || '';
+          const markdown = scrapeData.data?.markdown || scrapeData.markdown || '';
+          
+          console.log('Firecrawl scrape successful, extracting image...');
+          scrapedImage = extractProductImage(html, markdown, url);
+          
+          if (scrapedImage) {
+            console.log('Successfully extracted product image:', scrapedImage);
+          } else {
+            console.log('Could not extract product image from scraped content');
+          }
+        } else {
+          console.error('Firecrawl scrape failed:', scrapeResponse.status);
+        }
+      } catch (scrapeError) {
+        console.error('Firecrawl error:', scrapeError);
+      }
+    } else {
+      console.log('FIRECRAWL_API_KEY not configured, skipping image scrape');
+    }
+
+    // Step 2: Use Perplexity for review analysis
     const prompt = `Analisis produk dari URL e-commerce Indonesia ini: ${url}
 
-SANGAT PENTING - CARI DATA REAL dari URL tersebut dan berikan dalam format JSON:
+Cari data REAL dari URL tersebut dan berikan dalam format JSON:
 {
   "product": {
-    "name": "nama produk LENGKAP dan AKURAT",
+    "name": "nama produk LENGKAP",
     "price": harga dalam rupiah (angka saja),
     "originalPrice": harga asli sebelum diskon (angka atau null),
     "rating": rating 1-5 (desimal),
     "totalReviews": jumlah review (angka),
     "category": "kategori produk",
-    "seller": "nama toko/penjual",
-    "image": "URL GAMBAR PRODUK - WAJIB URL LENGKAP yang bisa diakses langsung"
+    "seller": "nama toko/penjual"
   },
   "sentiment": {
     "positive": persentase positif 0-100,
@@ -76,13 +183,7 @@ SANGAT PENTING - CARI DATA REAL dari URL tersebut dan berikan dalam format JSON:
   ]
 }
 
-INSTRUKSI KRITIS UNTUK GAMBAR:
-1. WAJIB cari URL gambar ASLI produk dari halaman tersebut
-2. URL gambar harus LENGKAP dengan https:// 
-3. Untuk Shopee: cari di cf.shopee.co.id atau down-id.img.susercontent.com
-4. Untuk Tokopedia: cari di images.tokopedia.net
-5. JANGAN gunakan URL placeholder atau gambar random
-6. Pastikan URL gambar bisa diakses langsung di browser`;
+Berikan minimal 5 review yang representatif dalam bahasa Indonesia.`;
 
     console.log('Sending request to Perplexity API...');
 
@@ -145,12 +246,14 @@ INSTRUKSI KRITIS UNTUK GAMBAR:
       );
     }
 
-    // Add platform and URL to the result
+    // Add platform, URL, and scraped image to the result
     analysisData.product = {
       ...analysisData.product,
       id: crypto.randomUUID(),
       platform,
       url,
+      // Use scraped image if available, otherwise use a placeholder
+      image: scrapedImage || `https://placehold.co/400x400/1a1a2e/ffffff?text=${encodeURIComponent(platform.charAt(0).toUpperCase() + platform.slice(1))}`,
     };
 
     // Add IDs to reviews
@@ -177,7 +280,7 @@ INSTRUKSI KRITIS UNTUK GAMBAR:
     }
     analysisData.priceHistory = priceHistory;
 
-    console.log('Analysis complete');
+    console.log('Analysis complete, image:', analysisData.product.image);
 
     return new Response(
       JSON.stringify({ 
