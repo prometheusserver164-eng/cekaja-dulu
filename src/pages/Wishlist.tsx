@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
-import { Heart, Bell, BellOff, Trash2, TrendingDown, Eye, ShoppingBag } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Heart, Bell, BellOff, Trash2, TrendingDown, Eye, ShoppingBag, LogIn } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { PlatformBadge } from '@/components/PlatformBadge';
@@ -8,14 +8,48 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useStore } from '@/store/useStore';
+import { useAuth } from '@/hooks/useAuth';
+import { useSyncData } from '@/hooks/useSyncData';
 import { formatPrice, getDiscountPercentage } from '@/lib/mockData';
 import { Star } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const Wishlist = () => {
-  const { wishlist, removeFromWishlist, toggleAlert } = useStore();
+  const { wishlist, removeFromWishlist, toggleAlert, clearWishlist } = useStore();
+  const { isAuthenticated } = useAuth();
+  const { removeFromWishlistDB, toggleAlertDB } = useSyncData();
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const clearAll = () => {
-    wishlist.forEach(item => removeFromWishlist(item.id));
+  const handleRemove = async (productId: string) => {
+    if (isAuthenticated) {
+      await removeFromWishlistDB(productId);
+    } else {
+      removeFromWishlist(productId);
+    }
+  };
+
+  const handleToggleAlert = async (productId: string, currentState: boolean) => {
+    if (isAuthenticated) {
+      await toggleAlertDB(productId, !currentState);
+    } else {
+      toggleAlert(productId);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (isAuthenticated) {
+      // Clear from DB one by one
+      for (const item of wishlist) {
+        await removeFromWishlistDB(item.id);
+      }
+    } else {
+      clearWishlist();
+    }
+    toast({
+      title: 'Wishlist Dikosongkan',
+      description: 'Semua produk telah dihapus dari wishlist.',
+    });
   };
 
   return (
@@ -26,20 +60,44 @@ const Wishlist = () => {
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                Wishlist Saya 💝
+              <h1 className="text-3xl md:text-4xl font-bold mb-2 flex items-center gap-2">
+                <Heart className="h-8 w-8 text-primary" />
+                Wishlist Saya
               </h1>
               <p className="text-muted-foreground">
                 {wishlist.length} produk tersimpan
+                {!isAuthenticated && wishlist.length > 0 && (
+                  <span className="text-warning ml-2">(data lokal)</span>
+                )}
               </p>
             </div>
             {wishlist.length > 0 && (
-              <Button variant="outline" className="text-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={clearAll}>
+              <Button variant="outline" className="text-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={handleClearAll}>
                 <Trash2 className="h-4 w-4" />
                 Bersihkan Semua
               </Button>
             )}
           </div>
+
+          {/* Auth Banner */}
+          {!isAuthenticated && wishlist.length > 0 && (
+            <Card className="mb-6 border-warning/50 bg-warning/5">
+              <CardContent className="py-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <p className="font-medium text-warning-foreground">Simpan wishlist ke cloud</p>
+                    <p className="text-sm text-muted-foreground">
+                      Login untuk menyimpan wishlist agar tidak hilang saat ganti perangkat.
+                    </p>
+                  </div>
+                  <Button onClick={() => navigate('/auth')} size="sm">
+                    <LogIn className="h-4 w-4" />
+                    Login Sekarang
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Wishlist Grid */}
           {wishlist.length > 0 ? (
@@ -101,7 +159,7 @@ const Wishlist = () => {
                         </div>
                         <Switch
                           checked={item.alertEnabled}
-                          onCheckedChange={() => toggleAlert(item.id)}
+                          onCheckedChange={() => handleToggleAlert(item.id, item.alertEnabled)}
                         />
                       </div>
 
@@ -117,7 +175,7 @@ const Wishlist = () => {
                           variant="ghost"
                           size="icon"
                           className="text-destructive hover:bg-destructive/10"
-                          onClick={() => removeFromWishlist(item.id)}
+                          onClick={() => handleRemove(item.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -139,12 +197,22 @@ const Wishlist = () => {
                   Mulai cek produk dan simpan favoritmu di sini! Kamu juga bisa aktifkan 
                   notifikasi harga untuk produk yang kamu incar.
                 </p>
-                <Button variant="hero" size="lg" asChild>
-                  <Link to="/">
-                    <ShoppingBag className="h-5 w-5" />
-                    Cek Produk Sekarang
-                  </Link>
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button variant="hero" size="lg" asChild>
+                    <Link to="/">
+                      <ShoppingBag className="h-5 w-5" />
+                      Cek Produk Sekarang
+                    </Link>
+                  </Button>
+                  {!isAuthenticated && (
+                    <Button variant="outline" size="lg" asChild>
+                      <Link to="/auth">
+                        <LogIn className="h-5 w-5" />
+                        Login / Daftar
+                      </Link>
+                    </Button>
+                  )}
+                </div>
               </div>
             </Card>
           )}

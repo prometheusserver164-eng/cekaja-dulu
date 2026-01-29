@@ -14,7 +14,120 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analysis_history: {
+        Row: {
+          analyzed_at: string
+          id: string
+          platform: string
+          price: number
+          product_id: string
+          product_image: string | null
+          product_name: string
+          rating: number | null
+          url: string
+          user_id: string
+        }
+        Insert: {
+          analyzed_at?: string
+          id?: string
+          platform: string
+          price: number
+          product_id: string
+          product_image?: string | null
+          product_name: string
+          rating?: number | null
+          url: string
+          user_id: string
+        }
+        Update: {
+          analyzed_at?: string
+          id?: string
+          platform?: string
+          price?: number
+          product_id?: string
+          product_image?: string | null
+          product_name?: string
+          rating?: number | null
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wishlist: {
+        Row: {
+          added_at: string
+          alert_enabled: boolean | null
+          id: string
+          original_price: number | null
+          platform: string
+          price: number
+          product_id: string
+          product_image: string | null
+          product_name: string
+          rating: number | null
+          total_reviews: number | null
+          url: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          alert_enabled?: boolean | null
+          id?: string
+          original_price?: number | null
+          platform: string
+          price: number
+          product_id: string
+          product_image?: string | null
+          product_name: string
+          rating?: number | null
+          total_reviews?: number | null
+          url: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          alert_enabled?: boolean | null
+          id?: string
+          original_price?: number | null
+          platform?: string
+          price?: number
+          product_id?: string
+          product_image?: string | null
+          product_name?: string
+          rating?: number | null
+          total_reviews?: number | null
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

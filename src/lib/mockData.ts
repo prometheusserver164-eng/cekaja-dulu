@@ -6,7 +6,7 @@ export interface Product {
   originalPrice?: number;
   rating: number;
   totalReviews: number;
-  platform: 'tokopedia' | 'shopee' | 'bukalapak' | 'lazada';
+  platform: 'tokopedia' | 'shopee' | 'bukalapak' | 'lazada' | 'blibli';
   category: string;
   seller: string;
   url: string;
@@ -20,7 +20,7 @@ export interface Review {
   date: string;
   content: string;
   sentiment: 'positive' | 'neutral' | 'negative';
-  platform: 'tokopedia' | 'shopee' | 'bukalapak' | 'lazada';
+  platform: 'tokopedia' | 'shopee' | 'bukalapak' | 'lazada' | 'blibli';
   verified: boolean;
   suspicious: boolean;
   images?: string[];
@@ -46,6 +46,7 @@ export const platformColors = {
   shopee: '#EE4D2D',
   bukalapak: '#E31E52',
   lazada: '#0F1689',
+  blibli: '#0095DA',
 };
 
 export const platformNames = {
@@ -53,6 +54,7 @@ export const platformNames = {
   shopee: 'Shopee',
   bukalapak: 'Bukalapak',
   lazada: 'Lazada',
+  blibli: 'Blibli',
 };
 
 export const recentProducts: Product[] = [

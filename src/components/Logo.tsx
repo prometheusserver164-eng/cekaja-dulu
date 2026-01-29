@@ -3,9 +3,10 @@ import { Search, CheckCircle } from 'lucide-react';
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
   showTagline?: boolean;
+  className?: string;
 }
 
-export function Logo({ size = 'md', showTagline = false }: LogoProps) {
+export function Logo({ size = 'md', showTagline = false, className = '' }: LogoProps) {
   const sizes = {
     sm: { text: 'text-xl', icon: 16 },
     md: { text: 'text-2xl', icon: 20 },
@@ -13,7 +14,7 @@ export function Logo({ size = 'md', showTagline = false }: LogoProps) {
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center gap-2 ${className}`}>
       <div className="relative">
         <div className="gradient-secondary rounded-xl p-2">
           <Search className="text-secondary-foreground" size={sizes[size].icon} />

@@ -1,15 +1,28 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Heart, LayoutDashboard, GitCompare, Menu, X } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Heart, LayoutDashboard, GitCompare, Menu, X, LogIn, LogOut, User } from 'lucide-react';
 import { useState } from 'react';
 import { Logo } from './Logo';
 import { Button } from './ui/button';
 import { useStore } from '@/store/useStore';
+import { useAuth } from '@/hooks/useAuth';
 import { Badge } from './ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
+import { Avatar, AvatarFallback } from './ui/avatar';
+import { useToast } from '@/hooks/use-toast';
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const wishlistCount = useStore((state) => state.wishlist.length);
+  const { user, isAuthenticated, signOut, loading } = useAuth();
+  const { toast } = useToast();
 
   const navLinks = [
     { to: '/wishlist', label: 'Wishlist', icon: Heart, count: wishlistCount },
@@ -18,6 +31,28 @@ export function Navbar() {
   ];
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Gagal logout. Silakan coba lagi.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    toast({
+      title: 'Berhasil Logout',
+      description: 'Sampai jumpa lagi!',
+    });
+    navigate('/');
+  };
+
+  const getUserInitials = () => {
+    if (!user?.email) return 'U';
+    return user.email.charAt(0).toUpperCase();
+  };
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-lg">
@@ -49,6 +84,45 @@ export function Navbar() {
                 </Button>
               </Link>
             ))}
+
+            {/* Auth Section */}
+            {!loading && (
+              <>
+                {isAuthenticated ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="ml-2 gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                            {getUserInitials()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="hidden lg:inline max-w-24 truncate">
+                          {user?.email?.split('@')[0]}
+                        </span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                        {user?.email}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Logout
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Link to="/auth">
+                    <Button variant="default" size="sm" className="ml-2">
+                      <LogIn className="h-4 w-4" />
+                      Masuk
+                    </Button>
+                  </Link>
+                )}
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -86,6 +160,40 @@ export function Navbar() {
                   </Button>
                 </Link>
               ))}
+
+              {/* Mobile Auth */}
+              {!loading && (
+                <>
+                  {isAuthenticated ? (
+                    <>
+                      <div className="px-4 py-2 text-sm text-muted-foreground border-t border-border mt-2 pt-4">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          <span className="truncate">{user?.email}</span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-destructive"
+                        onClick={() => {
+                          handleSignOut();
+                          setMobileMenuOpen(false);
+                        }}
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Logout
+                      </Button>
+                    </>
+                  ) : (
+                    <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="default" className="w-full mt-2">
+                        <LogIn className="h-4 w-4 mr-2" />
+                        Masuk / Daftar
+                      </Button>
+                    </Link>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}
