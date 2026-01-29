@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Search, Bell, Wallet, Clock, Star, TrendingUp, ChevronRight,
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useStore } from '@/store/useStore';
 import { useAuth } from '@/hooks/useAuth';
+import { useSyncData } from '@/hooks/useSyncData';
 import { formatPrice } from '@/lib/mockData';
 import { PlatformBadge } from '@/components/PlatformBadge';
 import { SEOHead } from '@/components/SEOHead';
@@ -29,10 +30,19 @@ const Dashboard = () => {
   } = useStore();
 
   const { user, isAuthenticated, loading } = useAuth();
+  const { fetchWishlist, fetchAnalysisHistory } = useSyncData();
   const navigate = useNavigate();
 
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
+
+  // Sync data from database when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchWishlist();
+      fetchAnalysisHistory();
+    }
+  }, [isAuthenticated, fetchWishlist, fetchAnalysisHistory]);
 
   // Calculate real stats
   const stats: { icon: LucideIcon; label: string; value: string | number; subtitle: string; color: string }[] = [
