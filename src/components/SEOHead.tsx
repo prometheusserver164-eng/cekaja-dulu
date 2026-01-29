@@ -20,15 +20,15 @@ interface SEOHeadProps {
 }
 
 export function SEOHead({
-  title = 'CekDulu - Cek Review Produk Sebelum Beli',
-  description = 'Platform analisis review produk e-commerce Indonesia berbasis AI. Deteksi review palsu, analisis sentimen, dan tracking harga.',
+  title = 'CekLagi - Cek Review Produk Sebelum Beli',
+  description = 'Platform analisis review produk e-commerce Indonesia. Deteksi review palsu, analisis sentimen, dan tracking harga.',
   keywords = 'cek review produk, analisis review, review palsu, Tokopedia, Shopee, e-commerce Indonesia',
   image = '/og-image.png',
-  url = 'https://cekdulu.id',
+  url = 'https://ceklagi.id',
   type = 'website',
   productData,
 }: SEOHeadProps) {
-  const fullTitle = title.includes('CekDulu') ? title : `${title} | CekDulu`;
+  const fullTitle = title.includes('CekLagi') ? title : `${title} | CekLagi`;
 
   return (
     <Helmet>

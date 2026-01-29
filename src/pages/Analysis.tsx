@@ -103,7 +103,7 @@ const Analysis = () => {
         description={`Baca analisis review ${data.product.name} di ${data.product.platform}. Rating ${data.product.rating}/5 dari ${data.product.totalReviews} review. ${data.sentiment.positive}% pembeli puas. Cek sebelum beli!`}
         keywords={`review ${data.product.name}, ${data.product.platform}, ${data.product.category}, analisis produk, cek review`}
         image={data.product.image}
-        url={`https://cekdulu.id/analisis/${id}`}
+        url={`https://ceklagi.id/analisis/${id}`}
         type="product"
         productData={{
           name: data.product.name,
@@ -133,7 +133,7 @@ const Analysis = () => {
           {currentAnalysis && (
             <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 bg-success/10 text-success rounded-full text-sm font-medium animate-fade-in">
               <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
-              Data Real-time dari AI Search
+              Data Real-time
             </div>
           )}
 
@@ -221,7 +221,7 @@ const Analysis = () => {
                 "{data.summary}"
               </p>
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                <span>Berdasarkan analisis AI dari berbagai sumber</span>
+                <span>Berdasarkan analisis dari berbagai sumber</span>
                 <Badge variant="outline" className="bg-success/10 text-success border-success/20">
                   <ShieldCheck className="h-3 w-3 mr-1" />
                   Tingkat Akurasi: 95%

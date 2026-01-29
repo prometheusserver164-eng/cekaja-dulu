@@ -226,9 +226,9 @@ const Admin = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <SEOHead 
-        title="Admin Panel - CekDulu"
-        description="Panel admin untuk mengelola pengaturan situs CekDulu"
-        url="https://cekdulu.id/admin"
+        title="Admin Panel - CekLagi"
+        description="Panel admin untuk mengelola pengaturan situs CekLagi"
+        url="https://ceklagi.id/admin"
       />
       <Navbar />
       <main className="flex-1 py-6 sm:py-8">
@@ -298,7 +298,7 @@ const Admin = () => {
                         id="site_name"
                         value={branding.site_name}
                         onChange={(e) => setBranding({ ...branding, site_name: e.target.value })}
-                        placeholder="CekDulu"
+                        placeholder="CekLagi"
                       />
                     </div>
                     <div className="space-y-2">

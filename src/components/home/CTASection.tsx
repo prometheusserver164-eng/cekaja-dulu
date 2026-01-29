@@ -58,7 +58,7 @@ export function CTASection() {
             </div>
             <div className="flex items-center gap-1.5 text-sm text-secondary-foreground/70">
               <CheckCircle className="h-4 w-4" />
-              <span>Analisis AI akurat</span>
+              <span>Analisis akurat</span>
             </div>
           </div>
 

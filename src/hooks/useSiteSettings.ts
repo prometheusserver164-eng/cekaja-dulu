@@ -32,8 +32,8 @@ const defaultSettings: SiteSettings = {
   branding: {
     logo_url: null,
     favicon_url: null,
-    site_name: 'CekDulu',
-    tagline: 'Sebelum Beli, Cek Dulu!',
+    site_name: 'CekLagi',
+    tagline: 'Sebelum Beli, Cek Lagi!',
   },
   social_links: {
     instagram: '',

@@ -105,9 +105,9 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <SEOHead 
-        title="Dashboard - CekDulu"
-        description="Lihat ringkasan aktivitas analisis produk, wishlist, dan statistik penghematan kamu di CekDulu."
-        url="https://cekdulu.id/dashboard"
+        title="Dashboard - CekLagi"
+        description="Lihat ringkasan aktivitas analisis produk, wishlist, dan statistik penghematan kamu di CekLagi."
+        url="https://ceklagi.id/dashboard"
       />
       <Navbar />
       <main className="flex-1 py-8">
@@ -348,7 +348,7 @@ const Dashboard = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-warning" />
-                  CekDulu Pro
+                  CekLagi Pro
                 </CardTitle>
               </CardHeader>
               <CardContent>

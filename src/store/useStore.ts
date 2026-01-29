@@ -232,7 +232,7 @@ export const useStore = create<AppState>()(
       },
     }),
     {
-      name: 'cekdulu-storage',
+      name: 'ceklagi-storage',
       partialize: (state) => ({
         wishlist: state.wishlist,
         recentSearches: state.recentSearches,

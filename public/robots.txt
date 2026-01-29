@@ -14,7 +14,7 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://cekdulu.id/sitemap.xml
+Sitemap: https://ceklagi.id/sitemap.xml
 
 # Crawl-delay for other bots
 Crawl-delay: 1
