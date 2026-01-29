@@ -242,8 +242,9 @@ const Dashboard = () => {
                           <p className="font-medium truncate">{item.productName}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <PlatformBadge platform={item.platform as any} size="sm" />
-                            <span className="text-sm text-muted-foreground">
-                              ⭐ {item.rating}
+                            <span className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Star className="h-3 w-3 fill-warning text-warning" />
+                              {item.rating}
                             </span>
                             <span className="text-sm font-medium text-success">
                               {formatPrice(item.price)}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, X, Star, TrendingDown, AlertTriangle, Check } from 'lucide-react';
+import { Plus, X, Star, TrendingDown, AlertTriangle, Check, GitCompare, RefreshCw } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { SearchBar } from '@/components/SearchBar';
@@ -38,8 +38,11 @@ const Compare = () => {
         <div className="container mx-auto">
           {/* Header */}
           <div className="text-center mb-10">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/10 mb-4">
+              <GitCompare className="h-6 w-6 text-primary" />
+            </div>
             <h1 className="text-3xl md:text-4xl font-bold mb-3">
-              Bandingkan Produk 🔄
+              Bandingkan Produk
             </h1>
             <p className="text-muted-foreground text-lg">
               Bandingkan hingga 3 produk sekaligus
@@ -214,7 +217,7 @@ const Compare = () => {
             <Card className="p-12 text-center animate-fade-in">
               <div className="max-w-md mx-auto">
                 <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-                  <span className="text-4xl">🔄</span>
+                  <RefreshCw className="h-12 w-12 text-muted-foreground" />
                 </div>
                 <h3 className="text-xl font-bold mb-2">Mulai Bandingkan Produk</h3>
                 <p className="text-muted-foreground mb-6">
