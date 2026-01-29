@@ -3,7 +3,9 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   Star, Heart, GitCompare, ExternalLink, ChevronRight, 
   ThumbsUp, ThumbsDown, AlertTriangle, Bell, Lightbulb,
-  TrendingDown, TrendingUp, Loader2
+  TrendingDown, TrendingUp, Loader2, Smile, Meh, Frown,
+  CheckCircle, XCircle, ShieldCheck, ShieldAlert, BarChart3,
+  MessageSquare, BadgeCheck, Clock
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -55,10 +57,15 @@ const Analysis = () => {
     return true;
   });
 
-  const sentimentEmoji = {
-    positive: '😊',
-    neutral: '😐',
-    negative: '😞',
+  const SentimentIcon = ({ sentiment }: { sentiment: 'positive' | 'neutral' | 'negative' }) => {
+    switch (sentiment) {
+      case 'positive':
+        return <Smile className="h-5 w-5 text-success" />;
+      case 'neutral':
+        return <Meh className="h-5 w-5 text-muted-foreground" />;
+      case 'negative':
+        return <Frown className="h-5 w-5 text-destructive" />;
+    }
   };
 
   if (!data) {
@@ -176,7 +183,7 @@ const Analysis = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Lightbulb className="h-5 w-5 text-warning" />
-                Kesimpulan Review ✨
+                Kesimpulan Review
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -186,14 +193,15 @@ const Analysis = () => {
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 <span>Berdasarkan analisis AI dari berbagai sumber</span>
                 <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                  <ShieldCheck className="h-3 w-3 mr-1" />
                   Tingkat Akurasi: 95%
                 </Badge>
               </div>
               {data.suspiciousPercentage > 5 && (
                 <div className="mt-4 p-4 bg-destructive/10 rounded-xl border border-destructive/20 flex items-center gap-3">
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  <ShieldAlert className="h-5 w-5 text-destructive" />
                   <span className="text-destructive font-medium">
-                    ⚠️ Terdeteksi {data.suspiciousPercentage}% review mencurigakan (mungkin palsu)
+                    Terdeteksi {data.suspiciousPercentage}% review mencurigakan (mungkin palsu)
                   </span>
                 </div>
               )}
@@ -204,7 +212,9 @@ const Analysis = () => {
           <div className="grid grid-cols-3 gap-4 mb-8">
             <Card className="bg-success/5 border-success/20 animate-fade-in-up" style={{ animationDelay: '150ms' }}>
               <CardContent className="p-6 text-center">
-                <div className="text-4xl mb-2">😊</div>
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-success/20 flex items-center justify-center">
+                  <Smile className="h-7 w-7 text-success" />
+                </div>
                 <div className="text-4xl font-bold text-success mb-1">{data.sentiment.positive}%</div>
                 <div className="text-sm text-muted-foreground">Puas</div>
                 <Progress value={data.sentiment.positive} className="mt-3 h-2" />
@@ -212,7 +222,9 @@ const Analysis = () => {
             </Card>
             <Card className="bg-muted/50 border-muted-foreground/20 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
               <CardContent className="p-6 text-center">
-                <div className="text-4xl mb-2">😐</div>
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
+                  <Meh className="h-7 w-7 text-muted-foreground" />
+                </div>
                 <div className="text-4xl font-bold text-muted-foreground mb-1">{data.sentiment.neutral}%</div>
                 <div className="text-sm text-muted-foreground">Biasa Aja</div>
                 <Progress value={data.sentiment.neutral} className="mt-3 h-2" />
@@ -220,7 +232,9 @@ const Analysis = () => {
             </Card>
             <Card className="bg-destructive/5 border-destructive/20 animate-fade-in-up" style={{ animationDelay: '250ms' }}>
               <CardContent className="p-6 text-center">
-                <div className="text-4xl mb-2">😞</div>
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-destructive/20 flex items-center justify-center">
+                  <Frown className="h-7 w-7 text-destructive" />
+                </div>
                 <div className="text-4xl font-bold text-destructive mb-1">{data.sentiment.negative}%</div>
                 <div className="text-sm text-muted-foreground">Kecewa</div>
                 <Progress value={data.sentiment.negative} className="mt-3 h-2" />
@@ -234,7 +248,7 @@ const Analysis = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-success">
                   <ThumbsUp className="h-5 w-5" />
-                  Yang Paling Dipuji 👍
+                  Yang Paling Dipuji
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -242,7 +256,7 @@ const Analysis = () => {
                   {(data.pros || []).map((pro, index) => (
                     <li key={index} className="flex items-start gap-3">
                       <div className="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-success text-sm">✓</span>
+                        <CheckCircle className="h-4 w-4 text-success" />
                       </div>
                       <span>{pro}</span>
                     </li>
@@ -254,7 +268,7 @@ const Analysis = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-destructive">
                   <ThumbsDown className="h-5 w-5" />
-                  Keluhan Utama 👎
+                  Keluhan Utama
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -262,7 +276,7 @@ const Analysis = () => {
                   {(data.cons || []).map((con, index) => (
                     <li key={index} className="flex items-start gap-3">
                       <div className="w-6 h-6 rounded-full bg-destructive/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-destructive text-sm">✕</span>
+                        <XCircle className="h-4 w-4 text-destructive" />
                       </div>
                       <span>{con}</span>
                     </li>
@@ -278,7 +292,8 @@ const Analysis = () => {
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <CardTitle className="flex items-center gap-2">
-                    📊 Tracking Harga 30 Hari Terakhir
+                    <BarChart3 className="h-5 w-5" />
+                    Tracking Harga 30 Hari Terakhir
                   </CardTitle>
                   <Button variant="outline">
                     <Bell className="h-4 w-4" />
@@ -337,17 +352,18 @@ const Analysis = () => {
           <Card className="animate-fade-in-up" style={{ animationDelay: '450ms' }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                💬 Baca Review Asli dari Pembeli
+                <MessageSquare className="h-5 w-5" />
+                Baca Review Asli dari Pembeli
               </CardTitle>
             </CardHeader>
             <CardContent>
               {/* Filters */}
               <div className="flex flex-wrap gap-2 mb-6">
                 {[
-                  { key: 'all', label: 'Semua' },
-                  { key: 'positive', label: 'Positif 😊' },
-                  { key: 'negative', label: 'Negatif 😞' },
-                  { key: 'verified', label: 'Terverifikasi ✓' },
+                  { key: 'all', label: 'Semua', icon: null },
+                  { key: 'positive', label: 'Positif', icon: Smile },
+                  { key: 'negative', label: 'Negatif', icon: Frown },
+                  { key: 'verified', label: 'Terverifikasi', icon: BadgeCheck },
                 ].map((filter) => (
                   <Button
                     key={filter.key}
@@ -355,6 +371,7 @@ const Analysis = () => {
                     size="sm"
                     onClick={() => setReviewFilter(filter.key as typeof reviewFilter)}
                   >
+                    {filter.icon && <filter.icon className="h-4 w-4 mr-1" />}
                     {filter.label}
                   </Button>
                 ))}
@@ -378,7 +395,8 @@ const Analysis = () => {
                               <PlatformBadge platform={review.platform} size="sm" />
                               {review.verified && (
                                 <Badge variant="outline" className="text-success border-success/30 bg-success/10">
-                                  ✓ Verified
+                                  <BadgeCheck className="h-3 w-3 mr-1" />
+                                  Verified
                                 </Badge>
                               )}
                             </div>
@@ -392,27 +410,26 @@ const Analysis = () => {
                                 ))}
                               </div>
                               <span>•</span>
+                              <Clock className="h-3 w-3" />
                               <span>{new Date(review.date).toLocaleDateString('id-ID')}</span>
                             </div>
                           </div>
                         </div>
-                        <Badge 
-                          className={
-                            review.sentiment === 'positive' 
-                              ? 'bg-success/10 text-success border-success/20' 
-                              : review.sentiment === 'negative'
-                              ? 'bg-destructive/10 text-destructive border-destructive/20'
-                              : 'bg-muted text-muted-foreground'
-                          }
-                        >
-                          {sentimentEmoji[review.sentiment]}
-                        </Badge>
+                        <div className={`p-2 rounded-full ${
+                          review.sentiment === 'positive' 
+                            ? 'bg-success/10' 
+                            : review.sentiment === 'negative'
+                            ? 'bg-destructive/10'
+                            : 'bg-muted'
+                        }`}>
+                          <SentimentIcon sentiment={review.sentiment} />
+                        </div>
                       </div>
                       <p className="text-sm leading-relaxed">{review.content}</p>
                       {review.suspicious && (
                         <div className="mt-3 flex items-center gap-2 text-xs text-warning">
                           <AlertTriangle className="h-3 w-3" />
-                          <span>⚠️ Review ini terdeteksi mencurigakan</span>
+                          <span>Review ini terdeteksi mencurigakan</span>
                         </div>
                       )}
                     </div>

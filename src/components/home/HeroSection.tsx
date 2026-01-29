@@ -20,7 +20,8 @@ export function HeroSection() {
         <div className="max-w-4xl mx-auto text-center">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-6 animate-fade-in">
-            <span className="text-sm font-medium text-primary">🚀 Platform Review Agregator #1 Indonesia</span>
+            <Zap className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-primary">Platform Review Agregator #1 Indonesia</span>
           </div>
 
           {/* Heading */}
