@@ -73,9 +73,9 @@ const Wishlist = () => {
                       </h3>
                       <div className="flex items-center gap-1 mb-3">
                         <Star className="h-4 w-4 fill-warning text-warning" />
-                        <span className="text-sm font-semibold">{item.rating}</span>
+                        <span className="text-sm font-semibold">{item.rating || 0}</span>
                         <span className="text-xs text-muted-foreground">
-                          ({item.totalReviews.toLocaleString('id-ID')} review)
+                          ({(item.totalReviews || 0).toLocaleString('id-ID')} review)
                         </span>
                       </div>
                       <div className="flex items-center gap-2 mb-4">
