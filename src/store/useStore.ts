@@ -7,6 +7,25 @@ interface WishlistItem extends Product {
   addedAt: string;
 }
 
+interface ActivityItem {
+  id: string;
+  action: 'analyze' | 'wishlist' | 'compare' | 'alert';
+  productName: string;
+  productId?: string;
+  timestamp: string;
+}
+
+interface AnalysisHistoryItem {
+  id: string;
+  productName: string;
+  productImage?: string;
+  platform: string;
+  price: number;
+  rating: number;
+  analyzedAt: string;
+  url: string;
+}
+
 interface AppState {
   // Wishlist
   wishlist: WishlistItem[];
@@ -29,6 +48,20 @@ interface AppState {
   // Current analysis
   currentAnalysis: AnalysisResult | null;
   setCurrentAnalysis: (analysis: AnalysisResult | null) => void;
+  
+  // Analysis history
+  analysisHistory: AnalysisHistoryItem[];
+  addToAnalysisHistory: (analysis: AnalysisResult) => void;
+  clearAnalysisHistory: () => void;
+  
+  // Activity log
+  activities: ActivityItem[];
+  addActivity: (action: ActivityItem['action'], productName: string, productId?: string) => void;
+  clearActivities: () => void;
+  
+  // Stats
+  totalSavings: number;
+  addSavings: (amount: number) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -45,6 +78,8 @@ export const useStore = create<AppState>()(
         set((state) => ({
           wishlist: [...state.wishlist, item],
         }));
+        // Log activity
+        get().addActivity('wishlist', product.name, product.id);
       },
       removeFromWishlist: (productId) => {
         set((state) => ({
@@ -52,6 +87,7 @@ export const useStore = create<AppState>()(
         }));
       },
       toggleAlert: (productId) => {
+        const product = get().wishlist.find(item => item.id === productId);
         set((state) => ({
           wishlist: state.wishlist.map((item) =>
             item.id === productId
@@ -59,6 +95,9 @@ export const useStore = create<AppState>()(
               : item
           ),
         }));
+        if (product && !product.alertEnabled) {
+          get().addActivity('alert', product.name, productId);
+        }
       },
       isInWishlist: (productId) => {
         return get().wishlist.some((item) => item.id === productId);
@@ -70,6 +109,7 @@ export const useStore = create<AppState>()(
         const current = get().comparisonProducts;
         if (current.length < 3 && !current.find((p) => p.id === product.id)) {
           set({ comparisonProducts: [...current, product] });
+          get().addActivity('compare', product.name, product.id);
         }
       },
       removeFromComparison: (productId) => {
@@ -96,6 +136,66 @@ export const useStore = create<AppState>()(
       currentAnalysis: null,
       setCurrentAnalysis: (analysis) => {
         set({ currentAnalysis: analysis });
+        if (analysis) {
+          get().addToAnalysisHistory(analysis);
+          get().addActivity('analyze', analysis.product.name, analysis.product.id);
+          
+          // Calculate savings if there's a discount
+          if (analysis.product.originalPrice && analysis.product.originalPrice > analysis.product.price) {
+            const savings = analysis.product.originalPrice - analysis.product.price;
+            get().addSavings(savings);
+          }
+        }
+      },
+      
+      // Analysis history
+      analysisHistory: [],
+      addToAnalysisHistory: (analysis) => {
+        const historyItem: AnalysisHistoryItem = {
+          id: analysis.product.id,
+          productName: analysis.product.name,
+          productImage: analysis.product.image,
+          platform: analysis.product.platform,
+          price: analysis.product.price,
+          rating: analysis.product.rating,
+          analyzedAt: new Date().toISOString(),
+          url: analysis.product.url,
+        };
+        set((state) => ({
+          analysisHistory: [
+            historyItem,
+            ...state.analysisHistory.filter(item => item.id !== analysis.product.id)
+          ].slice(0, 50), // Keep last 50 analyses
+        }));
+      },
+      clearAnalysisHistory: () => {
+        set({ analysisHistory: [] });
+      },
+      
+      // Activity log
+      activities: [],
+      addActivity: (action, productName, productId) => {
+        const activity: ActivityItem = {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          action,
+          productName,
+          productId,
+          timestamp: new Date().toISOString(),
+        };
+        set((state) => ({
+          activities: [activity, ...state.activities].slice(0, 100), // Keep last 100 activities
+        }));
+      },
+      clearActivities: () => {
+        set({ activities: [] });
+      },
+      
+      // Stats
+      totalSavings: 0,
+      addSavings: (amount) => {
+        set((state) => ({
+          totalSavings: state.totalSavings + amount,
+        }));
       },
     }),
     {
@@ -103,6 +203,9 @@ export const useStore = create<AppState>()(
       partialize: (state) => ({
         wishlist: state.wishlist,
         recentSearches: state.recentSearches,
+        analysisHistory: state.analysisHistory,
+        activities: state.activities,
+        totalSavings: state.totalSavings,
       }),
     }
   )
