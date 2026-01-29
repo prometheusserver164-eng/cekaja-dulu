@@ -42,33 +42,33 @@ Deno.serve(async (req) => {
     // Ask Perplexity to analyze the product
     const prompt = `Analisis produk dari URL e-commerce Indonesia ini: ${url}
 
-PENTING: Cari informasi REAL dari URL tersebut dan berikan data dalam format JSON yang valid:
+SANGAT PENTING - CARI DATA REAL dari URL tersebut dan berikan dalam format JSON:
 {
   "product": {
-    "name": "nama produk LENGKAP dan AKURAT sesuai yang ada di halaman produk",
-    "price": harga dalam rupiah (angka saja tanpa Rp, contoh: 15000000),
-    "originalPrice": harga asli sebelum diskon jika ada (angka saja, null jika tidak ada diskon),
-    "rating": rating produk (angka desimal 1-5, contoh: 4.8),
-    "totalReviews": jumlah total review (angka),
+    "name": "nama produk LENGKAP dan AKURAT",
+    "price": harga dalam rupiah (angka saja),
+    "originalPrice": harga asli sebelum diskon (angka atau null),
+    "rating": rating 1-5 (desimal),
+    "totalReviews": jumlah review (angka),
     "category": "kategori produk",
-    "seller": "nama toko/penjual ASLI",
-    "image": "URL gambar produk ASLI dari halaman produk (harus URL yang valid dan bisa diakses, biasanya dari CDN marketplace seperti images.tokopedia.net atau cf.shopee.co.id)"
+    "seller": "nama toko/penjual",
+    "image": "URL GAMBAR PRODUK - WAJIB URL LENGKAP yang bisa diakses langsung"
   },
   "sentiment": {
-    "positive": persentase review positif (0-100),
-    "neutral": persentase review netral (0-100),
-    "negative": persentase review negatif (0-100)
+    "positive": persentase positif 0-100,
+    "neutral": persentase netral 0-100,
+    "negative": persentase negatif 0-100
   },
-  "summary": "ringkasan 2-3 kalimat tentang kesimpulan review dalam bahasa Indonesia yang santai, contoh: 'X% pembeli puas banget sama produk ini! Kualitas bagus dan sesuai deskripsi. Tapi Y% ada yang komplain soal [masalah spesifik].'",
-  "suspiciousPercentage": persentase review yang mencurigakan/palsu (0-100),
-  "pros": ["kelebihan 1", "kelebihan 2", "kelebihan 3", "kelebihan 4", "kelebihan 5"],
-  "cons": ["kekurangan 1", "kekurangan 2", "kekurangan 3"],
+  "summary": "ringkasan 2-3 kalimat tentang review dalam bahasa Indonesia santai",
+  "suspiciousPercentage": persentase review mencurigakan 0-100,
+  "pros": ["kelebihan 1", "kelebihan 2", "kelebihan 3"],
+  "cons": ["kekurangan 1", "kekurangan 2"],
   "reviews": [
     {
-      "userName": "nama pembeli (gunakan nama Indonesia yang realistis)",
-      "rating": rating 1-5,
-      "date": "tanggal review format YYYY-MM-DD",
-      "content": "isi review ASLI dari pembeli dalam bahasa Indonesia",
+      "userName": "nama pembeli",
+      "rating": 1-5,
+      "date": "YYYY-MM-DD",
+      "content": "isi review",
       "sentiment": "positive/neutral/negative",
       "verified": true/false,
       "suspicious": true/false
@@ -76,12 +76,13 @@ PENTING: Cari informasi REAL dari URL tersebut dan berikan data dalam format JSO
   ]
 }
 
-INSTRUKSI PENTING:
-1. Cari data REAL dari URL produk tersebut
-2. Untuk gambar, cari URL gambar produk yang ASLI dari halaman tersebut
-3. Berikan minimal 5 review yang representatif
-4. Gunakan bahasa Indonesia yang natural
-5. Pastikan JSON valid dan lengkap`;
+INSTRUKSI KRITIS UNTUK GAMBAR:
+1. WAJIB cari URL gambar ASLI produk dari halaman tersebut
+2. URL gambar harus LENGKAP dengan https:// 
+3. Untuk Shopee: cari di cf.shopee.co.id atau down-id.img.susercontent.com
+4. Untuk Tokopedia: cari di images.tokopedia.net
+5. JANGAN gunakan URL placeholder atau gambar random
+6. Pastikan URL gambar bisa diakses langsung di browser`;
 
     console.log('Sending request to Perplexity API...');
 
