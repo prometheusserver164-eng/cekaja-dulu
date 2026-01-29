@@ -1,8 +1,21 @@
 import { Link } from 'react-router-dom';
 import { Logo } from './Logo';
-import { Instagram, Twitter, Facebook, Mail } from 'lucide-react';
+import { Instagram, Twitter, Facebook, Mail, Youtube } from 'lucide-react';
+import { useSiteSettings } from '@/hooks/useSiteSettings';
 
 export function Footer() {
+  const { settings } = useSiteSettings();
+
+  const socialIcons = [
+    { key: 'instagram', icon: Instagram, url: settings.social_links.instagram },
+    { key: 'twitter', icon: Twitter, url: settings.social_links.twitter },
+    { key: 'facebook', icon: Facebook, url: settings.social_links.facebook },
+    { key: 'youtube', icon: Youtube, url: settings.social_links.youtube },
+    { key: 'email', icon: Mail, url: settings.social_links.email ? `mailto:${settings.social_links.email}` : '' },
+  ];
+
+  const activeSocials = socialIcons.filter(s => s.url);
+
   return (
     <footer className="bg-card border-t border-border">
       <div className="container mx-auto py-12">
@@ -11,23 +24,23 @@ export function Footer() {
           <div className="md:col-span-2">
             <Logo size="md" showTagline />
             <p className="mt-4 text-muted-foreground max-w-md">
-              Platform agregator review produk e-commerce Indonesia. Bantu kamu belanja online 
-              lebih cerdas dengan analisis review dari berbagai marketplace.
+              {settings.footer.about_text}
             </p>
-            <div className="flex gap-4 mt-6">
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Instagram size={20} />
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Twitter size={20} />
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Facebook size={20} />
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Mail size={20} />
-              </a>
-            </div>
+            {activeSocials.length > 0 && (
+              <div className="flex gap-4 mt-6">
+                {activeSocials.map((social) => (
+                  <a 
+                    key={social.key}
+                    href={social.url} 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <social.icon size={20} />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Links */}
@@ -87,10 +100,10 @@ export function Footer() {
         <div className="border-t border-border mt-8 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              © 2024 CekDulu. Semua hak dilindungi.
+              © {settings.footer.copyright_year} {settings.branding.site_name}. Semua hak dilindungi.
             </p>
             <p className="text-xs text-muted-foreground text-center md:text-right">
-              Disclaimer: Data review bersumber dari platform publik. CekDulu tidak bertanggung jawab 
+              Disclaimer: Data review bersumber dari platform publik. {settings.branding.site_name} tidak bertanggung jawab 
               atas keakuratan informasi dari sumber asli.
             </p>
           </div>

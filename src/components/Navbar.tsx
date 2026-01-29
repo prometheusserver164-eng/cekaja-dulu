@@ -1,10 +1,11 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Heart, LayoutDashboard, GitCompare, Menu, X, LogIn, LogOut, User } from 'lucide-react';
+import { Heart, LayoutDashboard, GitCompare, Menu, X, LogIn, LogOut, User, Shield } from 'lucide-react';
 import { useState } from 'react';
 import { Logo } from './Logo';
 import { Button } from './ui/button';
 import { useStore } from '@/store/useStore';
 import { useAuth } from '@/hooks/useAuth';
+import { useAdmin } from '@/hooks/useAdmin';
 import { Badge } from './ui/badge';
 import {
   DropdownMenu,
@@ -22,6 +23,7 @@ export function Navbar() {
   const navigate = useNavigate();
   const wishlistCount = useStore((state) => state.wishlist.length);
   const { user, isAuthenticated, signOut, loading } = useAuth();
+  const { isAdmin } = useAdmin();
   const { toast } = useToast();
 
   const navLinks = [
@@ -107,6 +109,12 @@ export function Navbar() {
                         {user?.email}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      {isAdmin && (
+                        <DropdownMenuItem onClick={() => navigate('/admin')}>
+                          <Shield className="h-4 w-4 mr-2" />
+                          Admin Panel
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                         <LogOut className="h-4 w-4 mr-2" />
                         Logout
@@ -172,6 +180,14 @@ export function Navbar() {
                           <span className="truncate">{user?.email}</span>
                         </div>
                       </div>
+                      {isAdmin && (
+                        <Link to="/admin" onClick={() => setMobileMenuOpen(false)}>
+                          <Button variant="ghost" className="w-full justify-start">
+                            <Shield className="h-4 w-4 mr-2" />
+                            Admin Panel
+                          </Button>
+                        </Link>
+                      )}
                       <Button
                         variant="ghost"
                         className="w-full justify-start text-destructive"
