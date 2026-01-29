@@ -10,6 +10,7 @@ import {
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { PlatformBadge } from '@/components/PlatformBadge';
+import { SentimentIcon } from '@/components/analysis/SentimentIcon';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -92,16 +93,7 @@ const Analysis = () => {
     return true;
   });
 
-  const SentimentIcon = ({ sentiment }: { sentiment: 'positive' | 'neutral' | 'negative' }) => {
-    switch (sentiment) {
-      case 'positive':
-        return <Smile className="h-5 w-5 text-success" />;
-      case 'neutral':
-        return <Meh className="h-5 w-5 text-muted-foreground" />;
-      case 'negative':
-        return <Frown className="h-5 w-5 text-destructive" />;
-    }
-  };
+  // SentimentIcon is now imported from @/components/analysis/SentimentIcon
 
   if (!data) {
     return (
