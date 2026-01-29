@@ -1,9 +1,10 @@
+import { forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Logo } from './Logo';
 import { Instagram, Twitter, Facebook, Mail, Youtube } from 'lucide-react';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 
-export function Footer() {
+export const Footer = forwardRef<HTMLElement>((_, ref) => {
   const { settings } = useSiteSettings();
 
   const socialIcons = [
@@ -17,7 +18,7 @@ export function Footer() {
   const activeSocials = socialIcons.filter(s => s.url);
 
   return (
-    <footer className="bg-card border-t border-border">
+    <footer ref={ref} className="bg-card border-t border-border">
       <div className="container mx-auto py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
@@ -111,4 +112,6 @@ export function Footer() {
       </div>
     </footer>
   );
-}
+});
+
+Footer.displayName = 'Footer';

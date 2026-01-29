@@ -45,7 +45,7 @@ const defaultSettings: SiteSettings = {
   },
   footer: {
     about_text: 'Platform agregator review produk e-commerce Indonesia. Bantu kamu belanja online lebih cerdas dengan analisis review dari berbagai marketplace.',
-    copyright_year: '2024',
+    copyright_year: '2025',
   },
 };
 
