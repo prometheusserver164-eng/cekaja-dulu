@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Search, Bell, Wallet, Clock, Star, TrendingUp, ChevronRight,
-  History, Trash2, ExternalLink, BarChart3, Package, Sparkles
+  History, Trash2, ExternalLink, BarChart3, Package, Sparkles, LogIn, User
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useStore } from '@/store/useStore';
+import { useAuth } from '@/hooks/useAuth';
 import { formatPrice } from '@/lib/mockData';
 import { PlatformBadge } from '@/components/PlatformBadge';
 import { SEOHead } from '@/components/SEOHead';
@@ -26,6 +27,9 @@ const Dashboard = () => {
     clearAnalysisHistory,
     clearRecentSearches,
   } = useStore();
+
+  const { user, isAuthenticated, loading } = useAuth();
+  const navigate = useNavigate();
 
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
@@ -116,8 +120,38 @@ const Dashboard = () => {
             </h1>
             <p className="text-muted-foreground">
               Ringkasan aktivitas dan statistik kamu
+              {isAuthenticated && user && (
+                <span className="ml-2 text-primary">
+                  • Selamat datang, {user.email?.split('@')[0]}
+                </span>
+              )}
             </p>
           </div>
+
+          {/* Auth Banner */}
+          {!loading && !isAuthenticated && (
+            <Card className="mb-6 border-primary/30 bg-primary/5 animate-fade-in">
+              <CardContent className="py-6">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-lg">Simpan data ke cloud</p>
+                      <p className="text-muted-foreground">
+                        Login untuk menyimpan wishlist & histori analisis secara permanen.
+                      </p>
+                    </div>
+                  </div>
+                  <Button onClick={() => navigate('/auth')} variant="hero">
+                    <LogIn className="h-4 w-4" />
+                    Login / Daftar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -152,6 +186,9 @@ const Dashboard = () => {
               <CardTitle className="flex items-center gap-2">
                 <History className="h-5 w-5" />
                 Riwayat Analisis
+                {!isAuthenticated && analysisHistory.length > 0 && (
+                  <Badge variant="outline" className="ml-2 text-xs">Lokal</Badge>
+                )}
               </CardTitle>
               {analysisHistory.length > 0 && (
                 <Button 

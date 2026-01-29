@@ -9,6 +9,7 @@ import Analysis from "./pages/Analysis";
 import Compare from "./pages/Compare";
 import Wishlist from "./pages/Wishlist";
 import Dashboard from "./pages/Dashboard";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
             <Route path="/analisis/:id" element={<Analysis />} />
             <Route path="/bandingkan" element={<Compare />} />
             <Route path="/wishlist" element={<Wishlist />} />

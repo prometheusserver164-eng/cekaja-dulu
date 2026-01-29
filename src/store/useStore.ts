@@ -2,7 +2,20 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Product, AnalysisResult } from '@/lib/mockData';
 
-interface WishlistItem extends Product {
+type Platform = 'tokopedia' | 'shopee' | 'lazada' | 'bukalapak' | 'blibli';
+
+interface WishlistItem {
+  id: string;
+  name: string;
+  image: string;
+  platform: Platform;
+  price: number;
+  originalPrice?: number;
+  rating: number;
+  totalReviews: number;
+  url: string;
+  category: string;
+  seller: string;
   alertEnabled: boolean;
   addedAt: string;
 }
@@ -33,6 +46,8 @@ interface AppState {
   removeFromWishlist: (productId: string) => void;
   toggleAlert: (productId: string) => void;
   isInWishlist: (productId: string) => boolean;
+  setWishlistFromDB: (items: WishlistItem[]) => void;
+  clearWishlist: () => void;
   
   // Comparison
   comparisonProducts: Product[];
@@ -53,6 +68,7 @@ interface AppState {
   analysisHistory: AnalysisHistoryItem[];
   addToAnalysisHistory: (analysis: AnalysisResult) => void;
   clearAnalysisHistory: () => void;
+  setAnalysisHistoryFromDB: (items: AnalysisHistoryItem[]) => void;
   
   // Activity log
   activities: ActivityItem[];
@@ -71,14 +87,23 @@ export const useStore = create<AppState>()(
       wishlist: [],
       addToWishlist: (product) => {
         const item: WishlistItem = {
-          ...product,
+          id: product.id,
+          name: product.name,
+          image: product.image,
+          platform: product.platform,
+          price: product.price,
+          originalPrice: product.originalPrice,
+          rating: product.rating,
+          totalReviews: product.totalReviews,
+          url: product.url,
+          category: product.category,
+          seller: product.seller,
           alertEnabled: false,
           addedAt: new Date().toISOString(),
         };
         set((state) => ({
           wishlist: [...state.wishlist, item],
         }));
-        // Log activity
         get().addActivity('wishlist', product.name, product.id);
       },
       removeFromWishlist: (productId) => {
@@ -101,6 +126,12 @@ export const useStore = create<AppState>()(
       },
       isInWishlist: (productId) => {
         return get().wishlist.some((item) => item.id === productId);
+      },
+      setWishlistFromDB: (items) => {
+        set({ wishlist: items });
+      },
+      clearWishlist: () => {
+        set({ wishlist: [] });
       },
       
       // Comparison
@@ -140,7 +171,6 @@ export const useStore = create<AppState>()(
           get().addToAnalysisHistory(analysis);
           get().addActivity('analyze', analysis.product.name, analysis.product.id);
           
-          // Calculate savings if there's a discount
           if (analysis.product.originalPrice && analysis.product.originalPrice > analysis.product.price) {
             const savings = analysis.product.originalPrice - analysis.product.price;
             get().addSavings(savings);
@@ -165,11 +195,14 @@ export const useStore = create<AppState>()(
           analysisHistory: [
             historyItem,
             ...state.analysisHistory.filter(item => item.id !== analysis.product.id)
-          ].slice(0, 50), // Keep last 50 analyses
+          ].slice(0, 50),
         }));
       },
       clearAnalysisHistory: () => {
         set({ analysisHistory: [] });
+      },
+      setAnalysisHistoryFromDB: (items) => {
+        set({ analysisHistory: items });
       },
       
       // Activity log
@@ -183,7 +216,7 @@ export const useStore = create<AppState>()(
           timestamp: new Date().toISOString(),
         };
         set((state) => ({
-          activities: [activity, ...state.activities].slice(0, 100), // Keep last 100 activities
+          activities: [activity, ...state.activities].slice(0, 100),
         }));
       },
       clearActivities: () => {
