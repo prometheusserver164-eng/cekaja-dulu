@@ -1,5 +1,6 @@
+import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { Star, Heart, HeartOff } from 'lucide-react';
+import { Star, Heart } from 'lucide-react';
 import { Product, formatPrice, getDiscountPercentage } from '@/lib/mockData';
 import { PlatformBadge } from './PlatformBadge';
 import { useStore } from '@/store/useStore';
