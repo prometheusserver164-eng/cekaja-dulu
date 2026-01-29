@@ -4,6 +4,8 @@ import { Star, Heart } from 'lucide-react';
 import { Product, formatPrice, getDiscountPercentage } from '@/lib/mockData';
 import { PlatformBadge } from './PlatformBadge';
 import { useStore } from '@/store/useStore';
+import { useAuth } from '@/hooks/useAuth';
+import { useSyncData } from '@/hooks/useSyncData';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -15,14 +17,25 @@ interface ProductCardProps {
 
 export function ProductCard({ product, showWishlistButton = true }: ProductCardProps) {
   const { isInWishlist, addToWishlist, removeFromWishlist } = useStore();
+  const { isAuthenticated } = useAuth();
+  const { addToWishlistDB, removeFromWishlistDB } = useSyncData();
   const inWishlist = isInWishlist(product.id);
 
-  const handleWishlistClick = (e: React.MouseEvent) => {
+  const handleWishlistClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
     if (inWishlist) {
-      removeFromWishlist(product.id);
+      if (isAuthenticated) {
+        await removeFromWishlistDB(product.id);
+      } else {
+        removeFromWishlist(product.id);
+      }
     } else {
+      if (isAuthenticated) {
+        await addToWishlistDB(product);
+      }
+      // Always add to local store
       addToWishlist(product);
     }
   };
