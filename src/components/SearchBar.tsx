@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Link2, Loader2 } from 'lucide-react';
+import { Search, Link2, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useStore } from '@/store/useStore';
@@ -85,8 +85,9 @@ export function SearchBar({ size = 'default' }: SearchBarProps) {
           />
           {detectedPlatform && (
             <div className="absolute right-4 top-1/2 -translate-y-1/2">
-              <span className="text-xs font-medium text-success capitalize animate-fade-in">
-                ✓ {detectedPlatform}
+              <span className="flex items-center gap-1 text-xs font-medium text-success capitalize animate-fade-in">
+                <CheckCircle className="h-3 w-3" />
+                {detectedPlatform}
               </span>
             </div>
           )}
