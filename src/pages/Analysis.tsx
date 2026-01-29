@@ -20,6 +20,8 @@ import { mockAnalysisResult, formatPrice, getDiscountPercentage, AnalysisResult 
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { BestTimeToBuy } from '@/components/analysis/BestTimeToBuy';
 import { SEOHead } from '@/components/SEOHead';
+import { useAuth } from '@/hooks/useAuth';
+import { useSyncData } from '@/hooks/useSyncData';
 
 const Analysis = () => {
   const { id } = useParams();
@@ -32,6 +34,10 @@ const Analysis = () => {
     removeFromWishlist, 
     addToComparison 
   } = useStore();
+  
+  // Import sync hooks for database persistence
+  const { isAuthenticated } = useAuth();
+  const { addToWishlistDB, removeFromWishlistDB } = useSyncData();
   
   // Use real data if available, otherwise fall back to mock
   const rawData = currentAnalysis || mockAnalysisResult;
@@ -77,10 +83,18 @@ const Analysis = () => {
     }
   }, [currentAnalysis, id, navigate]);
 
-  const handleWishlistClick = () => {
+  const handleWishlistClick = async () => {
     if (inWishlist) {
-      removeFromWishlist(data.product.id);
+      if (isAuthenticated) {
+        await removeFromWishlistDB(data.product.id);
+      } else {
+        removeFromWishlist(data.product.id);
+      }
     } else {
+      if (isAuthenticated) {
+        await addToWishlistDB(data.product);
+      }
+      // Always add to local store
       addToWishlist(data.product);
     }
   };
