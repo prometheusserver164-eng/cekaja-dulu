@@ -212,7 +212,10 @@ export const mockAnalysisResult: AnalysisResult = {
   ],
 };
 
-export const formatPrice = (price: number): string => {
+export const formatPrice = (price: number | undefined | null): string => {
+  if (price === undefined || price === null || isNaN(price)) {
+    return 'Rp -';
+  }
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
@@ -221,6 +224,9 @@ export const formatPrice = (price: number): string => {
   }).format(price);
 };
 
-export const getDiscountPercentage = (original: number, current: number): number => {
+export const getDiscountPercentage = (original: number | undefined | null, current: number | undefined | null): number => {
+  if (!original || !current || isNaN(original) || isNaN(current) || original === 0) {
+    return 0;
+  }
   return Math.round(((original - current) / original) * 100);
 };

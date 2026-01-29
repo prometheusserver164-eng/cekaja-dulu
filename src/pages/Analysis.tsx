@@ -35,10 +35,32 @@ const Analysis = () => {
   // Use real data if available, otherwise fall back to mock
   const rawData = currentAnalysis || mockAnalysisResult;
   
+  // Create a safe product object with defaults to prevent undefined/NaN errors
+  const safeProduct = {
+    id: rawData.product?.id || 'unknown',
+    name: rawData.product?.name || 'Produk Tidak Dikenali',
+    image: rawData.product?.image || '',
+    price: typeof rawData.product?.price === 'number' && !isNaN(rawData.product.price) 
+      ? rawData.product.price : 0,
+    originalPrice: typeof rawData.product?.originalPrice === 'number' && !isNaN(rawData.product.originalPrice)
+      ? rawData.product.originalPrice : undefined,
+    rating: typeof rawData.product?.rating === 'number' && !isNaN(rawData.product.rating)
+      ? rawData.product.rating : 0,
+    totalReviews: typeof rawData.product?.totalReviews === 'number' && !isNaN(rawData.product.totalReviews)
+      ? rawData.product.totalReviews : 0,
+    platform: rawData.product?.platform || 'tokopedia',
+    category: rawData.product?.category || 'Uncategorized',
+    seller: rawData.product?.seller || 'Unknown Seller',
+    url: rawData.product?.url || '#',
+  };
+  
   // Ensure sentiment has default values to prevent undefined errors
   const data: AnalysisResult = {
     ...rawData,
+    product: safeProduct as any,
     sentiment: rawData.sentiment || { positive: 0, neutral: 0, negative: 0 },
+    summary: rawData.summary || 'Tidak ada ringkasan tersedia.',
+    suspiciousPercentage: typeof rawData.suspiciousPercentage === 'number' ? rawData.suspiciousPercentage : 0,
     pros: rawData.pros || [],
     cons: rawData.cons || [],
     reviews: rawData.reviews || [],

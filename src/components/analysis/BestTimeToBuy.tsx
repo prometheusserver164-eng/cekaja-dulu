@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, forwardRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -30,15 +30,18 @@ interface BuyRecommendation {
 }
 
 function analyzePriceHistory(priceHistory: PricePoint[], currentPrice: number): BuyRecommendation {
-  if (!priceHistory || priceHistory.length < 2) {
+  // Handle invalid currentPrice
+  const safeCurrentPrice = typeof currentPrice === 'number' && !isNaN(currentPrice) ? currentPrice : 0;
+  
+  if (!priceHistory || priceHistory.length < 2 || safeCurrentPrice === 0) {
     return {
       recommendation: 'buy_now',
       confidence: 50,
       reason: 'Data harga tidak cukup untuk analisis mendalam.',
       priceDirection: 'stable',
-      avgPrice: currentPrice,
-      lowestPrice: currentPrice,
-      highestPrice: currentPrice,
+      avgPrice: safeCurrentPrice,
+      lowestPrice: safeCurrentPrice,
+      highestPrice: safeCurrentPrice,
     };
   }
 
@@ -88,8 +91,9 @@ function analyzePriceHistory(priceHistory: PricePoint[], currentPrice: number): 
     recommendation = 'wait';
     confidence = 70;
     potentialSavings = currentPrice - lowestPrice;
+    const savingsFormatted = potentialSavings > 0 ? formatPrice(potentialSavings) : 'beberapa rupiah';
     if (priceDirection === 'down') {
-      reason = `Harga sedang tren turun. Tunggu beberapa hari lagi untuk potensi hemat hingga ${formatPrice(potentialSavings)}.`;
+      reason = `Harga sedang tren turun. Tunggu beberapa hari lagi untuk potensi hemat hingga ${savingsFormatted}.`;
     } else {
       reason = `Harga saat ini ${Math.round(priceVsAvg)}% di atas rata-rata. Pertimbangkan untuk menunggu promo atau flash sale.`;
     }
@@ -113,7 +117,8 @@ function analyzePriceHistory(priceHistory: PricePoint[], currentPrice: number): 
   };
 }
 
-export function BestTimeToBuy({ priceHistory, currentPrice }: BestTimeToBuyProps) {
+export const BestTimeToBuy = forwardRef<HTMLDivElement, BestTimeToBuyProps>(
+  ({ priceHistory, currentPrice }, ref) => {
   const analysis = useMemo(() => 
     analyzePriceHistory(priceHistory, currentPrice), 
     [priceHistory, currentPrice]
@@ -151,7 +156,7 @@ export function BestTimeToBuy({ priceHistory, currentPrice }: BestTimeToBuyProps
   const style = getRecommendationStyle();
 
   return (
-    <Card className={`${style.bg} ${style.border} animate-fade-in-up`}>
+    <Card ref={ref} className={`${style.bg} ${style.border} animate-fade-in-up`}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Calendar className="h-5 w-5" />
@@ -255,4 +260,6 @@ export function BestTimeToBuy({ priceHistory, currentPrice }: BestTimeToBuyProps
       </CardContent>
     </Card>
   );
-}
+});
+
+BestTimeToBuy.displayName = 'BestTimeToBuy';
