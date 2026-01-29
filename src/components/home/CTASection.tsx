@@ -1,8 +1,14 @@
-import { ArrowRight, ShoppingBag } from 'lucide-react';
+import { ArrowRight, ShoppingBag, Users, Search, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';
 
 export function CTASection() {
+  const stats = [
+    { icon: Search, value: '50K+', label: 'Produk Dianalisis' },
+    { icon: Users, value: '1M+', label: 'Review Dikumpulkan' },
+    { icon: Star, value: '98%', label: 'User Puas' },
+  ];
+
   return (
     <section className="py-16 md:py-24 gradient-cta">
       <div className="container mx-auto">
@@ -14,7 +20,7 @@ export function CTASection() {
 
           {/* Heading */}
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-secondary-foreground mb-6">
-            Udah siap belanja cerdas? 🛒
+            Udah siap belanja cerdas?
           </h2>
 
           {/* Subheading */}
@@ -35,18 +41,15 @@ export function CTASection() {
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-8 mt-12 pt-12 border-t border-secondary-foreground/20">
-            <div>
-              <div className="text-3xl md:text-4xl font-extrabold text-secondary-foreground">50K+</div>
-              <div className="text-sm text-secondary-foreground/70">Produk Dianalisis</div>
-            </div>
-            <div>
-              <div className="text-3xl md:text-4xl font-extrabold text-secondary-foreground">1M+</div>
-              <div className="text-sm text-secondary-foreground/70">Review Dikumpulkan</div>
-            </div>
-            <div>
-              <div className="text-3xl md:text-4xl font-extrabold text-secondary-foreground">98%</div>
-              <div className="text-sm text-secondary-foreground/70">User Puas</div>
-            </div>
+            {stats.map((stat) => (
+              <div key={stat.label} className="text-center">
+                <div className="inline-flex items-center justify-center w-10 h-10 bg-secondary-foreground/10 rounded-xl mb-2">
+                  <stat.icon className="h-5 w-5 text-secondary-foreground" />
+                </div>
+                <div className="text-3xl md:text-4xl font-extrabold text-secondary-foreground">{stat.value}</div>
+                <div className="text-sm text-secondary-foreground/70">{stat.label}</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

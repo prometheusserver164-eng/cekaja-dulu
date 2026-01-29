@@ -40,35 +40,35 @@ Deno.serve(async (req) => {
     console.log('Detected platform:', platform);
 
     // Ask Perplexity to analyze the product
-    const prompt = `Analisis produk dari URL ini: ${url}
+    const prompt = `Analisis produk dari URL e-commerce Indonesia ini: ${url}
 
-Tolong berikan informasi dalam format JSON yang valid dengan struktur berikut:
+PENTING: Cari informasi REAL dari URL tersebut dan berikan data dalam format JSON yang valid:
 {
   "product": {
-    "name": "nama produk lengkap",
-    "price": harga dalam rupiah (angka saja tanpa Rp),
-    "originalPrice": harga asli jika ada diskon (angka saja, null jika tidak ada),
-    "rating": rating produk (angka desimal 1-5),
-    "totalReviews": jumlah total review,
+    "name": "nama produk LENGKAP dan AKURAT sesuai yang ada di halaman produk",
+    "price": harga dalam rupiah (angka saja tanpa Rp, contoh: 15000000),
+    "originalPrice": harga asli sebelum diskon jika ada (angka saja, null jika tidak ada diskon),
+    "rating": rating produk (angka desimal 1-5, contoh: 4.8),
+    "totalReviews": jumlah total review (angka),
     "category": "kategori produk",
-    "seller": "nama toko/penjual",
-    "image": "URL gambar produk jika tersedia"
+    "seller": "nama toko/penjual ASLI",
+    "image": "URL gambar produk ASLI dari halaman produk (harus URL yang valid dan bisa diakses, biasanya dari CDN marketplace seperti images.tokopedia.net atau cf.shopee.co.id)"
   },
   "sentiment": {
     "positive": persentase review positif (0-100),
     "neutral": persentase review netral (0-100),
     "negative": persentase review negatif (0-100)
   },
-  "summary": "ringkasan 2-3 kalimat tentang kesimpulan review dalam bahasa Indonesia yang santai dan friendly, contoh: 'X% pembeli puas banget sama produk ini! Kualitas bagus dan sesuai deskripsi. Tapi Y% ada yang komplain soal [masalah spesifik].'",
+  "summary": "ringkasan 2-3 kalimat tentang kesimpulan review dalam bahasa Indonesia yang santai, contoh: 'X% pembeli puas banget sama produk ini! Kualitas bagus dan sesuai deskripsi. Tapi Y% ada yang komplain soal [masalah spesifik].'",
   "suspiciousPercentage": persentase review yang mencurigakan/palsu (0-100),
   "pros": ["kelebihan 1", "kelebihan 2", "kelebihan 3", "kelebihan 4", "kelebihan 5"],
   "cons": ["kekurangan 1", "kekurangan 2", "kekurangan 3"],
   "reviews": [
     {
-      "userName": "nama pembeli",
+      "userName": "nama pembeli (gunakan nama Indonesia yang realistis)",
       "rating": rating 1-5,
-      "date": "tanggal review dalam format YYYY-MM-DD",
-      "content": "isi review asli",
+      "date": "tanggal review format YYYY-MM-DD",
+      "content": "isi review ASLI dari pembeli dalam bahasa Indonesia",
       "sentiment": "positive/neutral/negative",
       "verified": true/false,
       "suspicious": true/false
@@ -76,11 +76,12 @@ Tolong berikan informasi dalam format JSON yang valid dengan struktur berikut:
   ]
 }
 
-Catatan penting:
-- Berikan data serealistis mungkin berdasarkan informasi yang tersedia
-- Untuk reviews, berikan minimal 5 review representatif
-- Gunakan bahasa Indonesia yang natural untuk summary dan review
-- Pastikan JSON valid dan bisa di-parse`;
+INSTRUKSI PENTING:
+1. Cari data REAL dari URL produk tersebut
+2. Untuk gambar, cari URL gambar produk yang ASLI dari halaman tersebut
+3. Berikan minimal 5 review yang representatif
+4. Gunakan bahasa Indonesia yang natural
+5. Pastikan JSON valid dan lengkap`;
 
     console.log('Sending request to Perplexity API...');
 
