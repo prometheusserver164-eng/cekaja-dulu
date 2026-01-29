@@ -32,7 +32,18 @@ const Analysis = () => {
   } = useStore();
   
   // Use real data if available, otherwise fall back to mock
-  const data: AnalysisResult = currentAnalysis || mockAnalysisResult;
+  const rawData = currentAnalysis || mockAnalysisResult;
+  
+  // Ensure sentiment has default values to prevent undefined errors
+  const data: AnalysisResult = {
+    ...rawData,
+    sentiment: rawData.sentiment || { positive: 0, neutral: 0, negative: 0 },
+    pros: rawData.pros || [],
+    cons: rawData.cons || [],
+    reviews: rawData.reviews || [],
+    priceHistory: rawData.priceHistory || [],
+  };
+  
   const inWishlist = isInWishlist(data.product.id);
 
   useEffect(() => {
