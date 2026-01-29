@@ -12,3 +12,19 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+# Sitemap
+Sitemap: https://cekdulu.id/sitemap.xml
+
+# Crawl-delay for other bots
+Crawl-delay: 1
+
+# Disallow admin/private routes
+Disallow: /dashboard
+Disallow: /api/
+
+# Allow all main pages
+Allow: /
+Allow: /analisis/*
+Allow: /bandingkan
+Allow: /wishlist

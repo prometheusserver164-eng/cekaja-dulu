@@ -18,6 +18,7 @@ import { useStore } from '@/store/useStore';
 import { mockAnalysisResult, formatPrice, getDiscountPercentage, AnalysisResult } from '@/lib/mockData';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { BestTimeToBuy } from '@/components/analysis/BestTimeToBuy';
+import { SEOHead } from '@/components/SEOHead';
 
 const Analysis = () => {
   const { id } = useParams();
@@ -97,6 +98,23 @@ const Analysis = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      <SEOHead 
+        title={`Review ${data.product.name} - Analisis Lengkap`}
+        description={`Baca analisis review ${data.product.name} di ${data.product.platform}. Rating ${data.product.rating}/5 dari ${data.product.totalReviews} review. ${data.sentiment.positive}% pembeli puas. Cek sebelum beli!`}
+        keywords={`review ${data.product.name}, ${data.product.platform}, ${data.product.category}, analisis produk, cek review`}
+        image={data.product.image}
+        url={`https://cekdulu.id/analisis/${id}`}
+        type="product"
+        productData={{
+          name: data.product.name,
+          price: data.product.price,
+          image: data.product.image,
+          rating: data.product.rating,
+          reviewCount: data.product.totalReviews,
+          seller: data.product.seller,
+          platform: data.product.platform,
+        }}
+      />
       <Navbar />
       <main className="flex-1">
         {/* Breadcrumb */}
