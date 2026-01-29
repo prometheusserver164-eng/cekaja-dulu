@@ -39,7 +39,7 @@ export function Logo({ size = 'md', showTagline = false, className = '' }: LogoP
       )}
       <div className="flex flex-col">
         <span className={`${sizes[size].text} font-extrabold text-gradient`}>
-          {settings.branding.site_name || 'CekDulu'}
+          {settings.branding.site_name || 'CekLagi'}
         </span>
         {showTagline && (
           <span className="text-xs text-muted-foreground">

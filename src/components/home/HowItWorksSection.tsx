@@ -14,7 +14,7 @@ export function HowItWorksSection() {
       icon: Sparkles,
       step: '2',
       title: 'Analisis Otomatis',
-      description: 'AI kami menganalisis ribuan review untuk kasih ringkasan akurat',
+      description: 'Sistem kami menganalisis ribuan review untuk kasih ringkasan akurat',
       color: 'bg-secondary/10 text-secondary',
     },
     {
@@ -31,7 +31,7 @@ export function HowItWorksSection() {
       <div className="container mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Cara Kerja <span className="text-gradient">CekDulu</span>
+            Cara Kerja <span className="text-gradient">CekLagi</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Cuma 3 langkah mudah untuk belanja lebih cerdas

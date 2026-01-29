@@ -134,7 +134,7 @@ export default function Auth() {
         <div className="text-center mb-8">
           <Logo size="lg" className="justify-center mb-4" />
           <p className="text-muted-foreground">
-            Analisis produk e-commerce dengan AI
+            Cek review produk e-commerce dengan mudah
           </p>
         </div>
 
@@ -149,7 +149,7 @@ export default function Auth() {
               <TabsContent value="login" className="mt-6">
                 <CardTitle className="text-xl">Selamat Datang Kembali</CardTitle>
                 <CardDescription>
-                  Masuk ke akun CekDulu kamu
+                  Masuk ke akun CekLagi kamu
                 </CardDescription>
               </TabsContent>
 
