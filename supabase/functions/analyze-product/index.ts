@@ -5,66 +5,82 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Extract product image from scraped HTML/markdown
-function extractProductImage(html: string, markdown: string, url: string): string | null {
-  // Common patterns for e-commerce product images
-  const imagePatterns = [
-    // Shopee CDN patterns
-    /https?:\/\/(?:down-id\.img\.susercontent\.com|cf\.shopee\.co\.id)\/file\/[a-zA-Z0-9_-]+(?:_tn)?/gi,
-    // Tokopedia CDN patterns
-    /https?:\/\/images\.tokopedia\.net\/img\/cache\/\d+(?:-square)?\/[^\s"'<>]+/gi,
-    // Generic high-res product image patterns
-    /https?:\/\/[^\s"'<>]+(?:product|item|goods)[^\s"'<>]*\.(?:jpg|jpeg|png|webp)/gi,
-  ];
+// Extract product image from scraped HTML
+function extractProductImage(html: string, url: string): string | null {
+  // For Shopee: Look for the main product image
+  if (url.includes('shopee')) {
+    // Try og:image first - but only if it's from product CDN (susercontent)
+    const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
+                    html.match(/content="([^"]+)"[^>]*property="og:image"/i);
+    if (ogMatch && ogMatch[1]) {
+      const imageUrl = ogMatch[1];
+      // Only use if it's from susercontent CDN (actual product images)
+      // Exclude deo.shopeemobile.com (those are Shopee UI assets, not product images)
+      if (imageUrl.includes('susercontent.com') && 
+          !imageUrl.includes('shopee-xtra') && 
+          !imageUrl.includes('banner') &&
+          !imageUrl.includes('logo')) {
+        console.log('Found Shopee og:image from CDN:', imageUrl);
+        return imageUrl;
+      }
+    }
 
-  // Try to find images in HTML first (more reliable)
-  for (const pattern of imagePatterns) {
-    const matches = html.match(pattern);
-    if (matches && matches.length > 0) {
-      // Return the first match (usually the main product image)
-      let imageUrl = matches[0];
-      // Clean up URL if needed
-      imageUrl = imageUrl.replace(/_tn$/, ''); // Remove thumbnail suffix for Shopee
-      console.log('Found product image from HTML:', imageUrl);
+    // Try to find product images in JSON data embedded in HTML
+    const jsonImagePattern = /"image"\s*:\s*"(https?:\/\/[^"]+susercontent\.com\/file\/[^"]+)"/g;
+    let match;
+    while ((match = jsonImagePattern.exec(html)) !== null) {
+      const imageUrl = match[1];
+      if (imageUrl && 
+          !imageUrl.includes('shopee-xtra') && 
+          !imageUrl.includes('banner') && 
+          !imageUrl.includes('wallet') &&
+          !imageUrl.includes('promo') &&
+          !imageUrl.includes('voucher') &&
+          !imageUrl.includes('icon')) {
+        console.log('Found Shopee JSON product image:', imageUrl);
+        return imageUrl;
+      }
+    }
+    
+    // Shopee product images often not in HTML due to JS rendering - return null to use screenshot
+    console.log('Shopee: Could not find product image in HTML, will use screenshot');
+    return null;
+  }
+
+  // For Tokopedia: Look for product images
+  if (url.includes('tokopedia')) {
+    const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+tokopedia\.net[^"]+)"/i) ||
+                    html.match(/content="([^"]+tokopedia\.net[^"]+)"[^>]*property="og:image"/i);
+    if (ogMatch && ogMatch[1]) {
+      console.log('Found Tokopedia og:image:', ogMatch[1]);
+      return ogMatch[1];
+    }
+
+    // Try JSON pattern
+    const jsonImagePattern = /"image"\s*:\s*"(https?:\/\/images\.tokopedia\.net[^"]+)"/g;
+    let match;
+    while ((match = jsonImagePattern.exec(html)) !== null) {
+      console.log('Found Tokopedia JSON image:', match[1]);
+      return match[1];
+    }
+  }
+
+  // Generic og:image fallback - but exclude Shopee UI assets
+  const ogImageMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
+                       html.match(/content="([^"]+)"[^>]*property="og:image"/i);
+  if (ogImageMatch && ogImageMatch[1]) {
+    const imageUrl = ogImageMatch[1];
+    // Skip Shopee mobile assets, logos, banners
+    if (!imageUrl.includes('logo') && 
+        !imageUrl.includes('banner') &&
+        !imageUrl.includes('shopeemobile.com') &&
+        !imageUrl.includes('deo.')) {
+      console.log('Found generic og:image:', imageUrl);
       return imageUrl;
     }
   }
 
-  // Try markdown as fallback
-  for (const pattern of imagePatterns) {
-    const matches = markdown.match(pattern);
-    if (matches && matches.length > 0) {
-      let imageUrl = matches[0];
-      imageUrl = imageUrl.replace(/_tn$/, '');
-      console.log('Found product image from markdown:', imageUrl);
-      return imageUrl;
-    }
-  }
-
-  // Extract any image URL from og:image or similar meta tags
-  const ogImageMatch = html.match(/og:image[^>]*content=["']([^"']+)["']/i);
-  if (ogImageMatch) {
-    console.log('Found og:image:', ogImageMatch[1]);
-    return ogImageMatch[1];
-  }
-
-  // Try to find any large image
-  const anyImageMatch = html.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp)(?:\?[^\s"'<>]*)?/gi);
-  if (anyImageMatch) {
-    // Filter out small images (icons, etc.)
-    const largeImage = anyImageMatch.find(img => 
-      !img.includes('icon') && 
-      !img.includes('logo') && 
-      !img.includes('avatar') &&
-      !img.includes('flag') &&
-      (img.includes('product') || img.includes('item') || img.includes('cache') || img.includes('file'))
-    );
-    if (largeImage) {
-      console.log('Found potential product image:', largeImage);
-      return largeImage;
-    }
-  }
-
+  console.log('Could not find product image in HTML');
   return null;
 }
 
@@ -106,10 +122,12 @@ Deno.serve(async (req) => {
 
     // Step 1: Use Firecrawl to scrape the actual product page for images
     let scrapedImage: string | null = null;
+    let screenshotBase64: string | null = null;
     
     if (FIRECRAWL_API_KEY) {
       console.log('Scraping product page with Firecrawl...');
       try {
+        // First try to get HTML for image extraction
         const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
           method: 'POST',
           headers: {
@@ -118,27 +136,36 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             url: url,
-            formats: ['html', 'markdown'],
+            formats: ['rawHtml', 'screenshot'],
             onlyMainContent: false,
-            waitFor: 3000, // Wait for JS to load
+            waitFor: 5000, // Wait longer for JS to load product images
           }),
         });
 
         if (scrapeResponse.ok) {
           const scrapeData = await scrapeResponse.json();
-          const html = scrapeData.data?.html || scrapeData.html || '';
-          const markdown = scrapeData.data?.markdown || scrapeData.markdown || '';
+          const html = scrapeData.data?.rawHtml || scrapeData.rawHtml || '';
+          screenshotBase64 = scrapeData.data?.screenshot || scrapeData.screenshot || null;
           
-          console.log('Firecrawl scrape successful, extracting image...');
-          scrapedImage = extractProductImage(html, markdown, url);
+          console.log('Firecrawl scrape successful');
+          console.log('HTML length:', html.length);
+          console.log('Screenshot available:', !!screenshotBase64);
+          
+          // Try to extract product image from HTML
+          if (html) {
+            scrapedImage = extractProductImage(html, url);
+          }
           
           if (scrapedImage) {
             console.log('Successfully extracted product image:', scrapedImage);
-          } else {
-            console.log('Could not extract product image from scraped content');
+          } else if (screenshotBase64) {
+            console.log('Using screenshot as fallback image');
+            // Convert base64 to data URL
+            scrapedImage = `data:image/png;base64,${screenshotBase64}`;
           }
         } else {
-          console.error('Firecrawl scrape failed:', scrapeResponse.status);
+          const errorText = await scrapeResponse.text();
+          console.error('Firecrawl scrape failed:', scrapeResponse.status, errorText);
         }
       } catch (scrapeError) {
         console.error('Firecrawl error:', scrapeError);
@@ -246,14 +273,22 @@ Berikan minimal 5 review yang representatif dalam bahasa Indonesia.`;
       );
     }
 
-    // Add platform, URL, and scraped image to the result
+    // Determine the final image URL
+    let finalImage = scrapedImage;
+    
+    // If no image was scraped, use a placeholder with product name
+    if (!finalImage) {
+      const productName = analysisData.product?.name || platform;
+      finalImage = `https://placehold.co/400x400/1a1a2e/ffffff?text=${encodeURIComponent(productName.substring(0, 20))}`;
+    }
+
+    // Add platform, URL, and image to the result
     analysisData.product = {
       ...analysisData.product,
       id: crypto.randomUUID(),
       platform,
       url,
-      // Use scraped image if available, otherwise use a placeholder
-      image: scrapedImage || `https://placehold.co/400x400/1a1a2e/ffffff?text=${encodeURIComponent(platform.charAt(0).toUpperCase() + platform.slice(1))}`,
+      image: finalImage,
     };
 
     // Add IDs to reviews
@@ -280,7 +315,7 @@ Berikan minimal 5 review yang representatif dalam bahasa Indonesia.`;
     }
     analysisData.priceHistory = priceHistory;
 
-    console.log('Analysis complete, image:', analysisData.product.image);
+    console.log('Analysis complete, image type:', finalImage?.startsWith('data:') ? 'screenshot' : 'url');
 
     return new Response(
       JSON.stringify({ 
