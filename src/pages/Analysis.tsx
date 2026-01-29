@@ -1,0 +1,381 @@
+import { useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { 
+  Star, Heart, GitCompare, ExternalLink, ChevronRight, 
+  ThumbsUp, ThumbsDown, AlertTriangle, Bell, Lightbulb,
+  TrendingDown, TrendingUp, Filter
+} from 'lucide-react';
+import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
+import { PlatformBadge } from '@/components/PlatformBadge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useStore } from '@/store/useStore';
+import { mockAnalysisResult, formatPrice, getDiscountPercentage } from '@/lib/mockData';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+
+const Analysis = () => {
+  const { id } = useParams();
+  const [reviewFilter, setReviewFilter] = useState<'all' | 'positive' | 'negative' | 'verified'>('all');
+  const { isInWishlist, addToWishlist, removeFromWishlist, addToComparison } = useStore();
+  
+  const data = mockAnalysisResult;
+  const inWishlist = isInWishlist(data.product.id);
+
+  const handleWishlistClick = () => {
+    if (inWishlist) {
+      removeFromWishlist(data.product.id);
+    } else {
+      addToWishlist(data.product);
+    }
+  };
+
+  const filteredReviews = data.reviews.filter(review => {
+    if (reviewFilter === 'all') return true;
+    if (reviewFilter === 'positive') return review.sentiment === 'positive';
+    if (reviewFilter === 'negative') return review.sentiment === 'negative';
+    if (reviewFilter === 'verified') return review.verified;
+    return true;
+  });
+
+  const sentimentEmoji = {
+    positive: '😊',
+    neutral: '😐',
+    negative: '😞',
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <Navbar />
+      <main className="flex-1">
+        {/* Breadcrumb */}
+        <div className="container mx-auto py-4">
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Link to="/" className="hover:text-primary transition-colors">Home</Link>
+            <ChevronRight className="h-4 w-4" />
+            <span>Hasil Analisis</span>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground truncate max-w-[200px]">{data.product.name}</span>
+          </nav>
+        </div>
+
+        <div className="container mx-auto pb-16">
+          {/* Product Card */}
+          <Card className="mb-8 overflow-hidden animate-fade-in">
+            <CardContent className="p-0">
+              <div className="grid md:grid-cols-[400px_1fr] gap-6">
+                <div className="aspect-square bg-muted overflow-hidden">
+                  <img 
+                    src={data.product.image} 
+                    alt={data.product.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="p-6 flex flex-col justify-center">
+                  <div className="flex items-center gap-2 mb-3">
+                    <PlatformBadge platform={data.product.platform} size="md" />
+                    <Badge variant="outline">{data.product.category}</Badge>
+                  </div>
+                  <h1 className="text-2xl md:text-3xl font-bold mb-4">{data.product.name}</h1>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex items-center gap-1">
+                      <Star className="h-6 w-6 fill-warning text-warning" />
+                      <span className="text-2xl font-bold">{data.product.rating}</span>
+                    </div>
+                    <span className="text-muted-foreground">
+                      ({data.product.totalReviews.toLocaleString('id-ID')} review dari 4 platform)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className="text-3xl font-bold text-success">
+                      {formatPrice(data.product.price)}
+                    </span>
+                    {data.product.originalPrice && (
+                      <>
+                        <span className="text-lg text-muted-foreground line-through">
+                          {formatPrice(data.product.originalPrice)}
+                        </span>
+                        <Badge className="bg-destructive text-destructive-foreground">
+                          -{getDiscountPercentage(data.product.originalPrice, data.product.price)}%
+                        </Badge>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <Button variant="outline" onClick={handleWishlistClick}>
+                      <Heart className={`h-4 w-4 ${inWishlist ? 'fill-destructive text-destructive' : ''}`} />
+                      {inWishlist ? 'Tersimpan' : 'Simpan ke Wishlist'}
+                    </Button>
+                    <Button variant="outline" onClick={() => addToComparison(data.product)}>
+                      <GitCompare className="h-4 w-4" />
+                      Bandingkan
+                    </Button>
+                    <Button variant="hero" asChild>
+                      <a href={data.product.url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4" />
+                        Buka di {data.product.platform.charAt(0).toUpperCase() + data.product.platform.slice(1)}
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* AI Summary Card */}
+          <Card className="mb-8 gradient-hero border-primary/20 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5 text-warning" />
+                Kesimpulan Review ✨
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg font-medium mb-4 leading-relaxed">
+                "{data.summary}"
+              </p>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>Berdasarkan analisis {data.product.totalReviews.toLocaleString('id-ID')} review dari 4 platform</span>
+                <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                  Tingkat Akurasi: 95%
+                </Badge>
+              </div>
+              {data.suspiciousPercentage > 5 && (
+                <div className="mt-4 p-4 bg-destructive/10 rounded-xl border border-destructive/20 flex items-center gap-3">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  <span className="text-destructive font-medium">
+                    ⚠️ Terdeteksi {data.suspiciousPercentage}% review mencurigakan (mungkin palsu)
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Sentiment Cards */}
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <Card className="bg-success/5 border-success/20 animate-fade-in-up" style={{ animationDelay: '150ms' }}>
+              <CardContent className="p-6 text-center">
+                <div className="text-4xl mb-2">😊</div>
+                <div className="text-4xl font-bold text-success mb-1">{data.sentiment.positive}%</div>
+                <div className="text-sm text-muted-foreground">Puas</div>
+                <Progress value={data.sentiment.positive} className="mt-3 h-2" />
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/50 border-muted-foreground/20 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+              <CardContent className="p-6 text-center">
+                <div className="text-4xl mb-2">😐</div>
+                <div className="text-4xl font-bold text-muted-foreground mb-1">{data.sentiment.neutral}%</div>
+                <div className="text-sm text-muted-foreground">Biasa Aja</div>
+                <Progress value={data.sentiment.neutral} className="mt-3 h-2" />
+              </CardContent>
+            </Card>
+            <Card className="bg-destructive/5 border-destructive/20 animate-fade-in-up" style={{ animationDelay: '250ms' }}>
+              <CardContent className="p-6 text-center">
+                <div className="text-4xl mb-2">😞</div>
+                <div className="text-4xl font-bold text-destructive mb-1">{data.sentiment.negative}%</div>
+                <div className="text-sm text-muted-foreground">Kecewa</div>
+                <Progress value={data.sentiment.negative} className="mt-3 h-2" />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Pros & Cons */}
+          <div className="grid md:grid-cols-2 gap-6 mb-8">
+            <Card className="bg-success/5 border-success/20 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-success">
+                  <ThumbsUp className="h-5 w-5" />
+                  Yang Paling Dipuji 👍
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3">
+                  {data.pros.map((pro, index) => (
+                    <li key={index} className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-success text-sm">✓</span>
+                      </div>
+                      <span>{pro}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+            <Card className="bg-destructive/5 border-destructive/20 animate-fade-in-up" style={{ animationDelay: '350ms' }}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive">
+                  <ThumbsDown className="h-5 w-5" />
+                  Keluhan Utama 👎
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3">
+                  {data.cons.map((con, index) => (
+                    <li key={index} className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-destructive/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-destructive text-sm">✕</span>
+                      </div>
+                      <span>{con}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Price History Chart */}
+          <Card className="mb-8 animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <CardTitle className="flex items-center gap-2">
+                  📊 Tracking Harga 30 Hari Terakhir
+                </CardTitle>
+                <Button variant="outline">
+                  <Bell className="h-4 w-4" />
+                  Aktifkan Alert Harga
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={data.priceHistory}>
+                    <defs>
+                      <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(value) => new Date(value).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                      className="text-xs"
+                    />
+                    <YAxis 
+                      tickFormatter={(value) => `${(value / 1000000).toFixed(1)}jt`}
+                      className="text-xs"
+                    />
+                    <Tooltip 
+                      formatter={(value: number) => formatPrice(value)}
+                      labelFormatter={(label) => new Date(label).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="price" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={2}
+                      fill="url(#colorPrice)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex justify-center gap-8 mt-4">
+                <div className="flex items-center gap-2 text-sm">
+                  <TrendingDown className="h-4 w-4 text-success" />
+                  <span>Terendah: {formatPrice(Math.min(...data.priceHistory.map(p => p.price)))}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <TrendingUp className="h-4 w-4 text-destructive" />
+                  <span>Tertinggi: {formatPrice(Math.max(...data.priceHistory.map(p => p.price)))}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Reviews Section */}
+          <Card className="animate-fade-in-up" style={{ animationDelay: '450ms' }}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                💬 Baca Review Asli dari Pembeli
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Filters */}
+              <div className="flex flex-wrap gap-2 mb-6">
+                {[
+                  { key: 'all', label: 'Semua' },
+                  { key: 'positive', label: 'Positif 😊' },
+                  { key: 'negative', label: 'Negatif 😞' },
+                  { key: 'verified', label: 'Terverifikasi ✓' },
+                ].map((filter) => (
+                  <Button
+                    key={filter.key}
+                    variant={reviewFilter === filter.key ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setReviewFilter(filter.key as typeof reviewFilter)}
+                  >
+                    {filter.label}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Reviews List */}
+              <div className="space-y-4">
+                {filteredReviews.map((review) => (
+                  <div key={review.id} className="p-4 rounded-xl bg-muted/30 border border-border">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="font-semibold text-primary">
+                            {review.userName.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{review.userName}</span>
+                            <PlatformBadge platform={review.platform} size="sm" />
+                            {review.verified && (
+                              <Badge variant="outline" className="text-success border-success/30 bg-success/10">
+                                ✓ Verified
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <div className="flex items-center">
+                              {[...Array(5)].map((_, i) => (
+                                <Star 
+                                  key={i} 
+                                  className={`h-3 w-3 ${i < review.rating ? 'fill-warning text-warning' : 'text-muted'}`} 
+                                />
+                              ))}
+                            </div>
+                            <span>•</span>
+                            <span>{new Date(review.date).toLocaleDateString('id-ID')}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Badge 
+                        className={
+                          review.sentiment === 'positive' 
+                            ? 'bg-success/10 text-success border-success/20' 
+                            : review.sentiment === 'negative'
+                            ? 'bg-destructive/10 text-destructive border-destructive/20'
+                            : 'bg-muted text-muted-foreground'
+                        }
+                      >
+                        {sentimentEmoji[review.sentiment]}
+                      </Badge>
+                    </div>
+                    <p className="text-sm leading-relaxed">{review.content}</p>
+                    {review.suspicious && (
+                      <div className="mt-3 flex items-center gap-2 text-xs text-warning">
+                        <AlertTriangle className="h-3 w-3" />
+                        <span>⚠️ Review ini terdeteksi mencurigakan</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+export default Analysis;
