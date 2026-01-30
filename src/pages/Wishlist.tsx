@@ -136,15 +136,24 @@ const Wishlist = () => {
                           ({(item.totalReviews || 0).toLocaleString('id-ID')} review)
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 mb-4">
-                        <span className="text-xl font-bold text-success">
-                          {formatPrice(item.price)}
-                        </span>
-                        {item.originalPrice && (
-                          <span className="text-sm text-muted-foreground line-through">
-                            {formatPrice(item.originalPrice)}
+                      <div className="space-y-1 mb-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl font-bold text-success">
+                            {formatPrice(item.price)}
                           </span>
-                        )}
+                          {item.originalPrice && (
+                            <span className="text-sm text-muted-foreground line-through">
+                              {formatPrice(item.originalPrice)}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Harga saat disimpan: {new Date(item.addedAt).toLocaleDateString('id-ID', { 
+                            day: 'numeric', 
+                            month: 'short', 
+                            year: 'numeric' 
+                          })}
+                        </p>
                       </div>
 
                       {/* Alert Toggle */}

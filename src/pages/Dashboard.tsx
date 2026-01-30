@@ -261,7 +261,7 @@ const Dashboard = () => {
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {getRelativeTime(item.analyzedAt)}
+                            Dicek {getRelativeTime(item.analyzedAt)} • Harga saat itu
                           </p>
                         </div>
                         <Button variant="ghost" size="sm" asChild>
