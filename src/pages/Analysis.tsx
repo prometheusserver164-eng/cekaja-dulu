@@ -51,6 +51,7 @@ const Analysis = () => {
       ? rawData.product.price : 0,
     originalPrice: typeof rawData.product?.originalPrice === 'number' && !isNaN(rawData.product.originalPrice)
       ? rawData.product.originalPrice : undefined,
+    priceRange: rawData.product?.priceRange || undefined,
     rating: typeof rawData.product?.rating === 'number' && !isNaN(rawData.product.rating)
       ? rawData.product.rating : 0,
     totalReviews: typeof rawData.product?.totalReviews === 'number' && !isNaN(rawData.product.totalReviews)
@@ -59,6 +60,8 @@ const Analysis = () => {
     category: rawData.product?.category || 'Uncategorized',
     seller: rawData.product?.seller || 'Unknown Seller',
     url: rawData.product?.url || '#',
+    hasVariants: rawData.product?.hasVariants || false,
+    variants: rawData.product?.variants || [],
   };
   
   // Ensure sentiment has default values to prevent undefined errors
@@ -200,19 +203,57 @@ const Analysis = () => {
                       ({(data.product.totalReviews || 0).toLocaleString('id-ID')} review)
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 mb-6">
-                    <span className="text-3xl font-bold text-success">
-                      {formatPrice(data.product.price)}
-                    </span>
-                    {data.product.originalPrice && (
-                      <>
-                        <span className="text-lg text-muted-foreground line-through">
-                          {formatPrice(data.product.originalPrice)}
+                  <div className="mb-4">
+                    {/* Price Display */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {safeProduct.priceRange ? (
+                        <>
+                          <span className="text-3xl font-bold text-success">
+                            {formatPrice(safeProduct.priceRange.min)} - {formatPrice(safeProduct.priceRange.max)}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            Harga bervariasi
+                          </Badge>
+                        </>
+                      ) : (
+                        <span className="text-3xl font-bold text-success">
+                          {formatPrice(data.product.price)}
                         </span>
-                        <Badge className="bg-destructive text-destructive-foreground">
-                          -{getDiscountPercentage(data.product.originalPrice, data.product.price)}%
-                        </Badge>
-                      </>
+                      )}
+                      {data.product.originalPrice && !safeProduct.priceRange && (
+                        <>
+                          <span className="text-lg text-muted-foreground line-through">
+                            {formatPrice(data.product.originalPrice)}
+                          </span>
+                          <Badge className="bg-destructive text-destructive-foreground">
+                            -{getDiscountPercentage(data.product.originalPrice, data.product.price)}%
+                          </Badge>
+                        </>
+                      )}
+                    </div>
+                    
+                    {/* Variant Info */}
+                    {safeProduct.hasVariants && safeProduct.variants && safeProduct.variants.length > 0 && (
+                      <div className="mt-4 p-4 bg-muted/50 rounded-xl">
+                        <p className="text-sm font-medium mb-3 flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-warning" />
+                          Produk ini memiliki {safeProduct.variants.length} pilihan varian
+                        </p>
+                        <div className="flex flex-wrap gap-3">
+                          {safeProduct.variants.map((variant, idx) => (
+                            <div key={idx} className="text-sm">
+                              <span className="text-muted-foreground">{variant.name}: </span>
+                              <span className="font-medium">
+                                {variant.options.slice(0, 5).join(', ')}
+                                {variant.options.length > 5 && ` +${variant.options.length - 5} lainnya`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          * Harga dapat berbeda tergantung varian yang dipilih
+                        </p>
+                      </div>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-3">
