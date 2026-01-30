@@ -84,6 +84,174 @@ function extractProductImage(html: string, url: string): string | null {
   return null;
 }
 
+// Extract price from scraped HTML - prioritize this for accuracy
+function extractPrice(html: string, url: string): { price: number; originalPrice: number | null } | null {
+  let price: number | null = null;
+  let originalPrice: number | null = null;
+
+  // For Shopee
+  if (url.includes('shopee')) {
+    // Look for price in JSON data
+    const pricePatterns = [
+      /"price"\s*:\s*(\d+)/g,
+      /"final_price"\s*:\s*(\d+)/g,
+      /"price_before_discount"\s*:\s*(\d+)/g,
+      /price[_-]?current[^>]*>.*?Rp\s*([\d.,]+)/gi,
+      /Rp\s*([\d.,]+)<\/span>/gi,
+    ];
+    
+    for (const pattern of pricePatterns) {
+      const match = pattern.exec(html);
+      if (match && match[1]) {
+        const parsed = parseInt(match[1].replace(/[.,]/g, ''));
+        if (parsed > 1000 && parsed < 100000000) { // Reasonable price range
+          if (!price || parsed < price) {
+            price = parsed;
+          }
+        }
+      }
+    }
+    
+    // Look for original/before discount price
+    const origMatch = /"price_before_discount"\s*:\s*(\d+)/.exec(html);
+    if (origMatch && origMatch[1]) {
+      const parsed = parseInt(origMatch[1]);
+      if (parsed > (price || 0)) {
+        originalPrice = parsed;
+      }
+    }
+  }
+
+  // For Tokopedia
+  if (url.includes('tokopedia')) {
+    // Tokopedia typically has price in meta tags or JSON-LD
+    const metaPriceMatch = html.match(/property="product:price:amount"[^>]*content="(\d+)"/i) ||
+                           html.match(/content="(\d+)"[^>]*property="product:price:amount"/i);
+    if (metaPriceMatch && metaPriceMatch[1]) {
+      price = parseInt(metaPriceMatch[1]);
+    }
+    
+    // Try JSON patterns
+    if (!price) {
+      const jsonPriceMatch = /"price"\s*:\s*(\d+)/.exec(html) ||
+                             /"priceCurrency".*?"price"\s*:\s*(\d+)/.exec(html);
+      if (jsonPriceMatch && jsonPriceMatch[1]) {
+        const parsed = parseInt(jsonPriceMatch[1]);
+        if (parsed > 1000 && parsed < 100000000) {
+          price = parsed;
+        }
+      }
+    }
+    
+    // Look for original price (slashed price)
+    const origPriceMatch = /"originalPrice"\s*:\s*(\d+)/.exec(html) ||
+                           /"slashPrice"\s*:\s*(\d+)/.exec(html);
+    if (origPriceMatch && origPriceMatch[1]) {
+      const parsed = parseInt(origPriceMatch[1]);
+      if (parsed > (price || 0)) {
+        originalPrice = parsed;
+      }
+    }
+  }
+
+  // Generic price extraction
+  if (!price) {
+    const genericPatterns = [
+      /Rp\s*([\d.,]+)\s*(?:<|$)/gi,
+      /price[^>]*>\s*Rp\s*([\d.,]+)/gi,
+      /"price"\s*:\s*"?(\d+)"?/g,
+    ];
+    
+    for (const pattern of genericPatterns) {
+      const match = pattern.exec(html);
+      if (match && match[1]) {
+        const parsed = parseInt(match[1].replace(/[.,]/g, ''));
+        if (parsed > 1000 && parsed < 100000000) {
+          price = parsed;
+          break;
+        }
+      }
+    }
+  }
+
+  if (price) {
+    console.log('Extracted price from HTML:', price, 'Original:', originalPrice);
+    return { price, originalPrice };
+  }
+  
+  console.log('Could not extract price from HTML');
+  return null;
+}
+
+// Extract rating from HTML
+function extractRating(html: string, url: string): { rating: number; totalReviews: number } | null {
+  let rating: number | null = null;
+  let totalReviews: number | null = null;
+
+  // For Shopee
+  if (url.includes('shopee')) {
+    const ratingMatch = /"rating"\s*:\s*([\d.]+)/.exec(html);
+    if (ratingMatch && ratingMatch[1]) {
+      rating = parseFloat(ratingMatch[1]);
+    }
+    const reviewMatch = /"rating_count"\s*:\s*\[?(\d+)/.exec(html) ||
+                        /"sold"\s*:\s*(\d+)/.exec(html);
+    if (reviewMatch && reviewMatch[1]) {
+      totalReviews = parseInt(reviewMatch[1]);
+    }
+  }
+
+  // For Tokopedia
+  if (url.includes('tokopedia')) {
+    const ratingMatch = /"ratingScore"\s*:\s*([\d.]+)/.exec(html) ||
+                        /"rating"\s*:\s*([\d.]+)/.exec(html);
+    if (ratingMatch && ratingMatch[1]) {
+      rating = parseFloat(ratingMatch[1]);
+    }
+    const reviewMatch = /"reviewCount"\s*:\s*(\d+)/.exec(html) ||
+                        /"countReview"\s*:\s*(\d+)/.exec(html);
+    if (reviewMatch && reviewMatch[1]) {
+      totalReviews = parseInt(reviewMatch[1]);
+    }
+  }
+
+  if (rating !== null) {
+    console.log('Extracted rating from HTML:', rating, 'Reviews:', totalReviews);
+    return { rating, totalReviews: totalReviews || 0 };
+  }
+  
+  return null;
+}
+
+// Extract product name from HTML
+function extractProductName(html: string, url: string): string | null {
+  // Try og:title first
+  const ogTitleMatch = html.match(/property="og:title"[^>]*content="([^"]+)"/i) ||
+                       html.match(/content="([^"]+)"[^>]*property="og:title"/i);
+  if (ogTitleMatch && ogTitleMatch[1]) {
+    let title = ogTitleMatch[1];
+    // Clean up common suffixes
+    title = title.replace(/\s*[-|]\s*(Shopee|Tokopedia|Lazada|Bukalapak).*$/i, '');
+    if (title.length > 5) {
+      console.log('Extracted product name from og:title:', title);
+      return title;
+    }
+  }
+
+  // Try meta title
+  const titleMatch = html.match(/<title[^>]*>([^<]+)</i);
+  if (titleMatch && titleMatch[1]) {
+    let title = titleMatch[1];
+    title = title.replace(/\s*[-|]\s*(Shopee|Tokopedia|Lazada|Bukalapak).*$/i, '');
+    if (title.length > 5) {
+      console.log('Extracted product name from title:', title);
+      return title;
+    }
+  }
+
+  return null;
+}
+
 // Simple in-memory rate limiter
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 10; // requests per window
@@ -171,14 +339,17 @@ Deno.serve(async (req) => {
 
     console.log('Detected platform:', platform);
 
-    // Step 1: Use Firecrawl to scrape the actual product page for images
+    // Step 1: Use Firecrawl to scrape the actual product page for accurate data
     let scrapedImage: string | null = null;
     let screenshotBase64: string | null = null;
+    let scrapedPrice: { price: number; originalPrice: number | null } | null = null;
+    let scrapedRating: { rating: number; totalReviews: number } | null = null;
+    let scrapedName: string | null = null;
     
     if (FIRECRAWL_API_KEY) {
       console.log('Scraping product page with Firecrawl...');
       try {
-        // First try to get HTML for image extraction
+        // First try to get HTML for data extraction
         const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
           method: 'POST',
           headers: {
@@ -189,7 +360,7 @@ Deno.serve(async (req) => {
             url: url,
             formats: ['rawHtml', 'screenshot'],
             onlyMainContent: false,
-            waitFor: 5000, // Wait longer for JS to load product images
+            waitFor: 5000, // Wait longer for JS to load product data
           }),
         });
 
@@ -202,9 +373,14 @@ Deno.serve(async (req) => {
           console.log('HTML length:', html.length);
           console.log('Screenshot available:', !!screenshotBase64);
           
-          // Try to extract product image from HTML
+          // Extract ALL product data from HTML for accuracy
           if (html) {
             scrapedImage = extractProductImage(html, url);
+            scrapedPrice = extractPrice(html, url);
+            scrapedRating = extractRating(html, url);
+            scrapedName = extractProductName(html, url);
+            
+            console.log('Scraped data - Price:', scrapedPrice, 'Rating:', scrapedRating, 'Name:', scrapedName);
           }
           
           if (scrapedImage) {
@@ -222,7 +398,7 @@ Deno.serve(async (req) => {
         console.error('Firecrawl error:', scrapeError);
       }
     } else {
-      console.log('FIRECRAWL_API_KEY not configured, skipping image scrape');
+      console.log('FIRECRAWL_API_KEY not configured, skipping scrape');
     }
 
     // Step 2: Use Perplexity for review analysis
@@ -381,14 +557,34 @@ Jangan berikan teks apapun di luar JSON. Langsung mulai dengan { dan akhiri deng
       finalImage = `https://placehold.co/400x400/1a1a2e/ffffff?text=${encodeURIComponent(productName.substring(0, 20))}`;
     }
 
-    // Add platform, URL, and image to the result
-    analysisData.product = {
+    // PRIORITIZE scraped data over Perplexity data for accuracy
+    // Scraped data comes directly from the marketplace, so it's more accurate
+    const finalProduct = {
       ...analysisData.product,
       id: crypto.randomUUID(),
       platform,
       url,
       image: finalImage,
+      // Use scraped price if available (more accurate than Perplexity)
+      price: scrapedPrice?.price || analysisData.product.price || 0,
+      originalPrice: scrapedPrice?.originalPrice || analysisData.product.originalPrice || null,
+      // Use scraped rating if available
+      rating: scrapedRating?.rating || analysisData.product.rating || 0,
+      totalReviews: scrapedRating?.totalReviews || analysisData.product.totalReviews || 0,
+      // Use scraped name if available
+      name: scrapedName || analysisData.product.name,
     };
+
+    console.log('Final product data:', {
+      name: finalProduct.name,
+      price: finalProduct.price,
+      originalPrice: finalProduct.originalPrice,
+      rating: finalProduct.rating,
+      totalReviews: finalProduct.totalReviews,
+      source: scrapedPrice ? 'scraped' : 'perplexity'
+    });
+
+    analysisData.product = finalProduct;
 
     // Add IDs to reviews
     if (analysisData.reviews) {
@@ -399,7 +595,7 @@ Jangan berikan teks apapun di luar JSON. Langsung mulai dengan { dan akhiri deng
       }));
     }
 
-    // Generate mock price history (last 30 days)
+    // Generate price history based on ACTUAL current price (last 30 days)
     const currentPrice = analysisData.product.price || 1000000;
     const priceHistory = [];
     for (let i = 30; i >= 0; i -= 5) {
@@ -411,6 +607,10 @@ Jangan berikan teks apapun di luar JSON. Langsung mulai dengan { dan akhiri deng
         date: date.toISOString().split('T')[0],
         price,
       });
+    }
+    // Make sure the last entry (today) has the exact current price
+    if (priceHistory.length > 0) {
+      priceHistory[priceHistory.length - 1].price = currentPrice;
     }
     analysisData.priceHistory = priceHistory;
 
