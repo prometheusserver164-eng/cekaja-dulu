@@ -1,15 +1,30 @@
+export interface ProductVariant {
+  type: string; // 'size', 'color', 'category', 'weight', 'other'
+  name: string;
+  options: string[];
+  selectedOption?: string;
+}
+
+export interface PriceRange {
+  min: number;
+  max: number;
+}
+
 export interface Product {
   id: string;
   name: string;
   image: string;
   price: number;
   originalPrice?: number;
+  priceRange?: PriceRange; // For products with variants
   rating: number;
   totalReviews: number;
   platform: 'tokopedia' | 'shopee' | 'bukalapak' | 'lazada' | 'blibli';
   category: string;
   seller: string;
   url: string;
+  hasVariants?: boolean;
+  variants?: ProductVariant[];
 }
 
 export interface Review {

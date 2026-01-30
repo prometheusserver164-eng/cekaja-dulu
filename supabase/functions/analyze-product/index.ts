@@ -84,10 +84,210 @@ function extractProductImage(html: string, url: string): string | null {
   return null;
 }
 
+// Extract product variants (size, color, category) from HTML
+interface ProductVariant {
+  type: string; // 'size', 'color', 'category', etc.
+  name: string;
+  options: string[];
+  selectedOption?: string;
+}
+
+interface VariantInfo {
+  hasVariants: boolean;
+  variants: ProductVariant[];
+  priceRange?: { min: number; max: number };
+  selectedVariantPrice?: number;
+}
+
+function extractVariants(html: string, url: string): VariantInfo {
+  const result: VariantInfo = {
+    hasVariants: false,
+    variants: [],
+  };
+
+  // For Shopee
+  if (url.includes('shopee')) {
+    // Look for tier variations (Shopee's variant structure)
+    const tierVariationsMatch = html.match(/"tier_variations"\s*:\s*(\[[\s\S]*?\])/);
+    if (tierVariationsMatch) {
+      try {
+        // Try to parse the variations array
+        const variationsStr = tierVariationsMatch[1]
+          .replace(/\\"/g, '"')
+          .replace(/\\n/g, ' ');
+        
+        // Extract variation names and options using regex
+        const nameMatches = variationsStr.matchAll(/"name"\s*:\s*"([^"]+)"/g);
+        const optionsMatches = variationsStr.matchAll(/"options"\s*:\s*\[((?:"[^"]*"(?:,\s*)?)+)\]/g);
+        
+        const names: string[] = [];
+        const optionsList: string[][] = [];
+        
+        for (const match of nameMatches) {
+          names.push(match[1]);
+        }
+        
+        for (const match of optionsMatches) {
+          const optionsStr = match[1];
+          const options = optionsStr.match(/"([^"]+)"/g)?.map(o => o.replace(/"/g, '')) || [];
+          optionsList.push(options);
+        }
+        
+        for (let i = 0; i < names.length; i++) {
+          const variantName = names[i].toLowerCase();
+          let type = 'other';
+          
+          if (variantName.includes('warna') || variantName.includes('color') || variantName.includes('colour')) {
+            type = 'color';
+          } else if (variantName.includes('ukuran') || variantName.includes('size') || variantName.includes('s/m/l')) {
+            type = 'size';
+          } else if (variantName.includes('model') || variantName.includes('tipe') || variantName.includes('type')) {
+            type = 'category';
+          } else if (variantName.includes('berat') || variantName.includes('weight') || variantName.includes('gram') || variantName.includes('kg')) {
+            type = 'weight';
+          }
+          
+          result.variants.push({
+            type,
+            name: names[i],
+            options: optionsList[i] || [],
+          });
+        }
+        
+        if (result.variants.length > 0) {
+          result.hasVariants = true;
+          console.log('Found Shopee variants:', result.variants);
+        }
+      } catch (e) {
+        console.error('Error parsing Shopee variants:', e);
+      }
+    }
+    
+    // Look for price range in models
+    const priceMinMatch = html.match(/"price_min"\s*:\s*(\d+)/);
+    const priceMaxMatch = html.match(/"price_max"\s*:\s*(\d+)/);
+    
+    if (priceMinMatch && priceMaxMatch) {
+      const min = parseInt(priceMinMatch[1]);
+      const max = parseInt(priceMaxMatch[1]);
+      if (min !== max && min > 0 && max > min) {
+        result.priceRange = { min, max };
+        console.log('Found Shopee price range:', result.priceRange);
+      }
+    }
+  }
+
+  // For Tokopedia
+  if (url.includes('tokopedia')) {
+    // Look for variant structure
+    const variantMatch = html.match(/"variant"\s*:\s*(\{[\s\S]*?"options"[\s\S]*?\})/);
+    if (variantMatch) {
+      try {
+        // Extract variant names
+        const variantNamesMatch = html.matchAll(/"variantName"\s*:\s*"([^"]+)"/g);
+        const optionNamesMatch = html.matchAll(/"optionName"\s*:\s*"([^"]+)"/g);
+        
+        const variantNames: string[] = [];
+        const optionNames: string[] = [];
+        
+        for (const match of variantNamesMatch) {
+          if (!variantNames.includes(match[1])) {
+            variantNames.push(match[1]);
+          }
+        }
+        
+        for (const match of optionNamesMatch) {
+          optionNames.push(match[1]);
+        }
+        
+        // Group options by variant
+        for (const variantName of variantNames) {
+          const lowerName = variantName.toLowerCase();
+          let type = 'other';
+          
+          if (lowerName.includes('warna') || lowerName.includes('color')) {
+            type = 'color';
+          } else if (lowerName.includes('ukuran') || lowerName.includes('size')) {
+            type = 'size';
+          } else if (lowerName.includes('model') || lowerName.includes('tipe')) {
+            type = 'category';
+          }
+          
+          result.variants.push({
+            type,
+            name: variantName,
+            options: optionNames.slice(0, 10), // Limit options
+          });
+        }
+        
+        if (result.variants.length > 0) {
+          result.hasVariants = true;
+          console.log('Found Tokopedia variants:', result.variants);
+        }
+      } catch (e) {
+        console.error('Error parsing Tokopedia variants:', e);
+      }
+    }
+    
+    // Alternative Tokopedia variant detection
+    const childMatch = html.match(/"children"\s*:\s*\[([\s\S]*?)\]/);
+    if (childMatch && !result.hasVariants) {
+      // Look for price variations
+      const prices: number[] = [];
+      const priceMatches = childMatch[1].matchAll(/"price"\s*:\s*(\d+)/g);
+      for (const match of priceMatches) {
+        prices.push(parseInt(match[1]));
+      }
+      
+      if (prices.length > 1) {
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        if (min !== max && min > 0) {
+          result.priceRange = { min, max };
+          result.hasVariants = true;
+          console.log('Found Tokopedia price range from children:', result.priceRange);
+        }
+      }
+    }
+  }
+
+  // Generic variant detection
+  if (!result.hasVariants) {
+    // Look for common variant patterns
+    const sizePattern = /(?:ukuran|size)\s*[:=]\s*([A-Z0-9,\s/]+)/gi;
+    const colorPattern = /(?:warna|color)\s*[:=]\s*([a-zA-Z0-9,\s/]+)/gi;
+    
+    const sizeMatch = sizePattern.exec(html);
+    if (sizeMatch && sizeMatch[1]) {
+      const options = sizeMatch[1].split(/[,/]/).map(s => s.trim()).filter(s => s);
+      if (options.length > 0) {
+        result.variants.push({ type: 'size', name: 'Ukuran', options });
+        result.hasVariants = true;
+      }
+    }
+    
+    const colorMatch = colorPattern.exec(html);
+    if (colorMatch && colorMatch[1]) {
+      const options = colorMatch[1].split(/[,/]/).map(s => s.trim()).filter(s => s);
+      if (options.length > 0) {
+        result.variants.push({ type: 'color', name: 'Warna', options });
+        result.hasVariants = true;
+      }
+    }
+  }
+
+  return result;
+}
+
 // Extract price from scraped HTML - prioritize this for accuracy
-function extractPrice(html: string, url: string): { price: number; originalPrice: number | null } | null {
+function extractPrice(html: string, url: string, variantInfo?: VariantInfo): { 
+  price: number; 
+  originalPrice: number | null;
+  priceRange?: { min: number; max: number };
+} | null {
   let price: number | null = null;
   let originalPrice: number | null = null;
+  let priceRange: { min: number; max: number } | undefined = variantInfo?.priceRange;
 
   // For Shopee
   if (url.includes('shopee')) {
@@ -100,13 +300,18 @@ function extractPrice(html: string, url: string): { price: number; originalPrice
       /Rp\s*([\d.,]+)<\/span>/gi,
     ];
     
-    for (const pattern of pricePatterns) {
-      const match = pattern.exec(html);
-      if (match && match[1]) {
-        const parsed = parseInt(match[1].replace(/[.,]/g, ''));
-        if (parsed > 1000 && parsed < 100000000) { // Reasonable price range
-          if (!price || parsed < price) {
-            price = parsed;
+    // If there's a price range, use the minimum as the display price
+    if (priceRange) {
+      price = priceRange.min;
+    } else {
+      for (const pattern of pricePatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1]) {
+          const parsed = parseInt(match[1].replace(/[.,]/g, ''));
+          if (parsed > 1000 && parsed < 100000000) { // Reasonable price range
+            if (!price || parsed < price) {
+              price = parsed;
+            }
           }
         }
       }
@@ -124,21 +329,26 @@ function extractPrice(html: string, url: string): { price: number; originalPrice
 
   // For Tokopedia
   if (url.includes('tokopedia')) {
-    // Tokopedia typically has price in meta tags or JSON-LD
-    const metaPriceMatch = html.match(/property="product:price:amount"[^>]*content="(\d+)"/i) ||
-                           html.match(/content="(\d+)"[^>]*property="product:price:amount"/i);
-    if (metaPriceMatch && metaPriceMatch[1]) {
-      price = parseInt(metaPriceMatch[1]);
-    }
-    
-    // Try JSON patterns
-    if (!price) {
-      const jsonPriceMatch = /"price"\s*:\s*(\d+)/.exec(html) ||
-                             /"priceCurrency".*?"price"\s*:\s*(\d+)/.exec(html);
-      if (jsonPriceMatch && jsonPriceMatch[1]) {
-        const parsed = parseInt(jsonPriceMatch[1]);
-        if (parsed > 1000 && parsed < 100000000) {
-          price = parsed;
+    // If there's a price range, use the minimum as the display price
+    if (priceRange) {
+      price = priceRange.min;
+    } else {
+      // Tokopedia typically has price in meta tags or JSON-LD
+      const metaPriceMatch = html.match(/property="product:price:amount"[^>]*content="(\d+)"/i) ||
+                             html.match(/content="(\d+)"[^>]*property="product:price:amount"/i);
+      if (metaPriceMatch && metaPriceMatch[1]) {
+        price = parseInt(metaPriceMatch[1]);
+      }
+      
+      // Try JSON patterns
+      if (!price) {
+        const jsonPriceMatch = /"price"\s*:\s*(\d+)/.exec(html) ||
+                               /"priceCurrency".*?"price"\s*:\s*(\d+)/.exec(html);
+        if (jsonPriceMatch && jsonPriceMatch[1]) {
+          const parsed = parseInt(jsonPriceMatch[1]);
+          if (parsed > 1000 && parsed < 100000000) {
+            price = parsed;
+          }
         }
       }
     }
@@ -175,8 +385,8 @@ function extractPrice(html: string, url: string): { price: number; originalPrice
   }
 
   if (price) {
-    console.log('Extracted price from HTML:', price, 'Original:', originalPrice);
-    return { price, originalPrice };
+    console.log('Extracted price from HTML:', price, 'Original:', originalPrice, 'Range:', priceRange);
+    return { price, originalPrice, priceRange };
   }
   
   console.log('Could not extract price from HTML');
@@ -342,9 +552,10 @@ Deno.serve(async (req) => {
     // Step 1: Use Firecrawl to scrape the actual product page for accurate data
     let scrapedImage: string | null = null;
     let screenshotBase64: string | null = null;
-    let scrapedPrice: { price: number; originalPrice: number | null } | null = null;
+    let scrapedPrice: { price: number; originalPrice: number | null; priceRange?: { min: number; max: number } } | null = null;
     let scrapedRating: { rating: number; totalReviews: number } | null = null;
     let scrapedName: string | null = null;
+    let variantInfo: VariantInfo | null = null;
     
     if (FIRECRAWL_API_KEY) {
       console.log('Scraping product page with Firecrawl...');
@@ -376,11 +587,17 @@ Deno.serve(async (req) => {
           // Extract ALL product data from HTML for accuracy
           if (html) {
             scrapedImage = extractProductImage(html, url);
-            scrapedPrice = extractPrice(html, url);
+            
+            // Extract variants FIRST to help with price extraction
+            variantInfo = extractVariants(html, url);
+            console.log('Variant info:', variantInfo);
+            
+            // Extract price with variant info for accurate pricing
+            scrapedPrice = extractPrice(html, url, variantInfo);
             scrapedRating = extractRating(html, url);
             scrapedName = extractProductName(html, url);
             
-            console.log('Scraped data - Price:', scrapedPrice, 'Rating:', scrapedRating, 'Name:', scrapedName);
+            console.log('Scraped data - Price:', scrapedPrice, 'Rating:', scrapedRating, 'Name:', scrapedName, 'Variants:', variantInfo?.hasVariants);
           }
           
           if (scrapedImage) {
@@ -568,19 +785,27 @@ Jangan berikan teks apapun di luar JSON. Langsung mulai dengan { dan akhiri deng
       // Use scraped price if available (more accurate than Perplexity)
       price: scrapedPrice?.price || analysisData.product.price || 0,
       originalPrice: scrapedPrice?.originalPrice || analysisData.product.originalPrice || null,
+      // Include price range for products with variants
+      priceRange: scrapedPrice?.priceRange || null,
       // Use scraped rating if available
       rating: scrapedRating?.rating || analysisData.product.rating || 0,
       totalReviews: scrapedRating?.totalReviews || analysisData.product.totalReviews || 0,
       // Use scraped name if available
       name: scrapedName || analysisData.product.name,
+      // Include variant information
+      hasVariants: variantInfo?.hasVariants || false,
+      variants: variantInfo?.variants || [],
     };
 
     console.log('Final product data:', {
       name: finalProduct.name,
       price: finalProduct.price,
       originalPrice: finalProduct.originalPrice,
+      priceRange: finalProduct.priceRange,
       rating: finalProduct.rating,
       totalReviews: finalProduct.totalReviews,
+      hasVariants: finalProduct.hasVariants,
+      variants: finalProduct.variants,
       source: scrapedPrice ? 'scraped' : 'perplexity'
     });
 
