@@ -20,9 +20,10 @@ export function SearchBar({ size = 'default' }: SearchBarProps) {
 
   const detectPlatform = (inputUrl: string) => {
     if (inputUrl.includes('tokopedia.com')) return 'tokopedia';
-    if (inputUrl.includes('shopee.co.id') || inputUrl.includes('shopee.com')) return 'shopee';
+    if (inputUrl.includes('shopee.co.id') || inputUrl.includes('shopee.com') || inputUrl.includes('shopee.sg')) return 'shopee';
     if (inputUrl.includes('bukalapak.com')) return 'bukalapak';
-    if (inputUrl.includes('lazada.co.id') || inputUrl.includes('lazada.com')) return 'lazada';
+    if (inputUrl.includes('lazada.co.id') || inputUrl.includes('lazada.com') || inputUrl.includes('lazada.sg')) return 'lazada';
+    if (inputUrl.includes('blibli.com')) return 'blibli';
     return null;
   };
 

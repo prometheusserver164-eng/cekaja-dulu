@@ -7,77 +7,141 @@ const corsHeaders = {
 
 // Extract product image from scraped HTML
 function extractProductImage(html: string, url: string): string | null {
-  // For Shopee: Look for the main product image
-  if (url.includes('shopee')) {
-    // Try og:image first - but only if it's from product CDN (susercontent)
-    const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
-                    html.match(/content="([^"]+)"[^>]*property="og:image"/i);
-    if (ogMatch && ogMatch[1]) {
-      const imageUrl = ogMatch[1];
-      // Only use if it's from susercontent CDN (actual product images)
-      // Exclude deo.shopeemobile.com (those are Shopee UI assets, not product images)
-      if (imageUrl.includes('susercontent.com') && 
-          !imageUrl.includes('shopee-xtra') && 
+  try {
+    // ============ SHOPEE ============
+    if (url.includes('shopee')) {
+      // Try og:image first - but only if it's from product CDN (susercontent)
+      const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
+                      html.match(/content="([^"]+)"[^>]*property="og:image"/i);
+      if (ogMatch && ogMatch[1]) {
+        const imageUrl = ogMatch[1];
+        if (imageUrl.includes('susercontent.com') && 
+            !imageUrl.includes('shopee-xtra') && 
+            !imageUrl.includes('banner') &&
+            !imageUrl.includes('logo')) {
+          console.log('Found Shopee og:image from CDN:', imageUrl);
+          return imageUrl;
+        }
+      }
+
+      // Try to find product images in JSON data
+      const jsonImagePattern = /"image"\s*:\s*"(https?:\/\/[^"]+susercontent\.com\/file\/[^"]+)"/g;
+      let match;
+      while ((match = jsonImagePattern.exec(html)) !== null) {
+        const imageUrl = match[1];
+        if (imageUrl && 
+            !imageUrl.includes('shopee-xtra') && 
+            !imageUrl.includes('banner') && 
+            !imageUrl.includes('wallet') &&
+            !imageUrl.includes('promo') &&
+            !imageUrl.includes('voucher') &&
+            !imageUrl.includes('icon')) {
+          console.log('Found Shopee JSON product image:', imageUrl);
+          return imageUrl;
+        }
+      }
+      
+      console.log('Shopee: Could not find product image in HTML, will use screenshot');
+      return null;
+    }
+
+    // ============ TOKOPEDIA ============
+    if (url.includes('tokopedia')) {
+      const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+tokopedia\.net[^"]+)"/i) ||
+                      html.match(/content="([^"]+tokopedia\.net[^"]+)"[^>]*property="og:image"/i);
+      if (ogMatch && ogMatch[1]) {
+        console.log('Found Tokopedia og:image:', ogMatch[1]);
+        return ogMatch[1];
+      }
+
+      const jsonImagePattern = /"image"\s*:\s*"(https?:\/\/images\.tokopedia\.net[^"]+)"/g;
+      let match;
+      while ((match = jsonImagePattern.exec(html)) !== null) {
+        console.log('Found Tokopedia JSON image:', match[1]);
+        return match[1];
+      }
+    }
+
+    // ============ LAZADA ============
+    if (url.includes('lazada')) {
+      const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
+                      html.match(/content="([^"]+)"[^>]*property="og:image"/i);
+      if (ogMatch && ogMatch[1]) {
+        const imageUrl = ogMatch[1];
+        if (!imageUrl.includes('logo') && !imageUrl.includes('banner')) {
+          console.log('Found Lazada og:image:', imageUrl);
+          return imageUrl;
+        }
+      }
+      
+      // Lazada images in JSON
+      const jsonImagePattern = /"image"\s*:\s*"(https?:\/\/[^"]+lazada[^"]+\/images\/[^"]+)"/g;
+      let match;
+      while ((match = jsonImagePattern.exec(html)) !== null) {
+        console.log('Found Lazada JSON image:', match[1]);
+        return match[1];
+      }
+    }
+
+    // ============ BUKALAPAK ============
+    if (url.includes('bukalapak')) {
+      const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
+                      html.match(/content="([^"]+)"[^>]*property="og:image"/i);
+      if (ogMatch && ogMatch[1]) {
+        const imageUrl = ogMatch[1];
+        if (!imageUrl.includes('logo') && !imageUrl.includes('banner')) {
+          console.log('Found Bukalapak og:image:', imageUrl);
+          return imageUrl;
+        }
+      }
+      
+      // Bukalapak images often in s3/bukalapak-prd-*
+      const jsonImagePattern = /"(?:small_url|large_url|medium_url)"\s*:\s*"(https?:\/\/[^"]+bukalapak[^"]+)"/g;
+      let match;
+      while ((match = jsonImagePattern.exec(html)) !== null) {
+        console.log('Found Bukalapak JSON image:', match[1]);
+        return match[1];
+      }
+    }
+
+    // ============ BLIBLI ============
+    if (url.includes('blibli')) {
+      const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
+                      html.match(/content="([^"]+)"[^>]*property="og:image"/i);
+      if (ogMatch && ogMatch[1]) {
+        const imageUrl = ogMatch[1];
+        if (!imageUrl.includes('logo') && !imageUrl.includes('banner')) {
+          console.log('Found Blibli og:image:', imageUrl);
+          return imageUrl;
+        }
+      }
+      
+      // Blibli CDN images
+      const jsonImagePattern = /"(?:images?|imageUrl)"\s*:\s*"(https?:\/\/[^"]+blibli[^"]+)"/g;
+      let match;
+      while ((match = jsonImagePattern.exec(html)) !== null) {
+        if (!match[1].includes('logo') && !match[1].includes('banner')) {
+          console.log('Found Blibli JSON image:', match[1]);
+          return match[1];
+        }
+      }
+    }
+
+    // ============ GENERIC FALLBACK ============
+    const ogImageMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
+                         html.match(/content="([^"]+)"[^>]*property="og:image"/i);
+    if (ogImageMatch && ogImageMatch[1]) {
+      const imageUrl = ogImageMatch[1];
+      if (!imageUrl.includes('logo') && 
           !imageUrl.includes('banner') &&
-          !imageUrl.includes('logo')) {
-        console.log('Found Shopee og:image from CDN:', imageUrl);
+          !imageUrl.includes('shopeemobile.com') &&
+          !imageUrl.includes('deo.')) {
+        console.log('Found generic og:image:', imageUrl);
         return imageUrl;
       }
     }
-
-    // Try to find product images in JSON data embedded in HTML
-    const jsonImagePattern = /"image"\s*:\s*"(https?:\/\/[^"]+susercontent\.com\/file\/[^"]+)"/g;
-    let match;
-    while ((match = jsonImagePattern.exec(html)) !== null) {
-      const imageUrl = match[1];
-      if (imageUrl && 
-          !imageUrl.includes('shopee-xtra') && 
-          !imageUrl.includes('banner') && 
-          !imageUrl.includes('wallet') &&
-          !imageUrl.includes('promo') &&
-          !imageUrl.includes('voucher') &&
-          !imageUrl.includes('icon')) {
-        console.log('Found Shopee JSON product image:', imageUrl);
-        return imageUrl;
-      }
-    }
-    
-    // Shopee product images often not in HTML due to JS rendering - return null to use screenshot
-    console.log('Shopee: Could not find product image in HTML, will use screenshot');
-    return null;
-  }
-
-  // For Tokopedia: Look for product images
-  if (url.includes('tokopedia')) {
-    const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+tokopedia\.net[^"]+)"/i) ||
-                    html.match(/content="([^"]+tokopedia\.net[^"]+)"[^>]*property="og:image"/i);
-    if (ogMatch && ogMatch[1]) {
-      console.log('Found Tokopedia og:image:', ogMatch[1]);
-      return ogMatch[1];
-    }
-
-    // Try JSON pattern
-    const jsonImagePattern = /"image"\s*:\s*"(https?:\/\/images\.tokopedia\.net[^"]+)"/g;
-    let match;
-    while ((match = jsonImagePattern.exec(html)) !== null) {
-      console.log('Found Tokopedia JSON image:', match[1]);
-      return match[1];
-    }
-  }
-
-  // Generic og:image fallback - but exclude Shopee UI assets
-  const ogImageMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
-                       html.match(/content="([^"]+)"[^>]*property="og:image"/i);
-  if (ogImageMatch && ogImageMatch[1]) {
-    const imageUrl = ogImageMatch[1];
-    // Skip Shopee mobile assets, logos, banners
-    if (!imageUrl.includes('logo') && 
-        !imageUrl.includes('banner') &&
-        !imageUrl.includes('shopeemobile.com') &&
-        !imageUrl.includes('deo.')) {
-      console.log('Found generic og:image:', imageUrl);
-      return imageUrl;
-    }
+  } catch (error) {
+    console.error('Error extracting product image:', error);
   }
 
   console.log('Could not find product image in HTML');
@@ -105,175 +169,370 @@ function extractVariants(html: string, url: string): VariantInfo {
     variants: [],
   };
 
-  // For Shopee
-  if (url.includes('shopee')) {
-    // Look for tier variations (Shopee's variant structure)
-    const tierVariationsMatch = html.match(/"tier_variations"\s*:\s*(\[[\s\S]*?\])/);
-    if (tierVariationsMatch) {
-      try {
-        // Try to parse the variations array
-        const variationsStr = tierVariationsMatch[1]
-          .replace(/\\"/g, '"')
-          .replace(/\\n/g, ' ');
-        
-        // Extract variation names and options using regex
-        const nameMatches = variationsStr.matchAll(/"name"\s*:\s*"([^"]+)"/g);
-        const optionsMatches = variationsStr.matchAll(/"options"\s*:\s*\[((?:"[^"]*"(?:,\s*)?)+)\]/g);
-        
-        const names: string[] = [];
-        const optionsList: string[][] = [];
-        
-        for (const match of nameMatches) {
-          names.push(match[1]);
-        }
-        
-        for (const match of optionsMatches) {
-          const optionsStr = match[1];
-          const options = optionsStr.match(/"([^"]+)"/g)?.map(o => o.replace(/"/g, '')) || [];
-          optionsList.push(options);
-        }
-        
-        for (let i = 0; i < names.length; i++) {
-          const variantName = names[i].toLowerCase();
-          let type = 'other';
+  try {
+    // ============ SHOPEE ============
+    if (url.includes('shopee')) {
+      // Look for tier variations (Shopee's variant structure)
+      const tierVariationsMatch = html.match(/"tier_variations"\s*:\s*(\[[\s\S]*?\](?=,\s*"[a-z]))/);
+      if (tierVariationsMatch) {
+        try {
+          const variationsStr = tierVariationsMatch[1];
           
-          if (variantName.includes('warna') || variantName.includes('color') || variantName.includes('colour')) {
-            type = 'color';
-          } else if (variantName.includes('ukuran') || variantName.includes('size') || variantName.includes('s/m/l')) {
-            type = 'size';
-          } else if (variantName.includes('model') || variantName.includes('tipe') || variantName.includes('type')) {
-            type = 'category';
-          } else if (variantName.includes('berat') || variantName.includes('weight') || variantName.includes('gram') || variantName.includes('kg')) {
-            type = 'weight';
+          // Extract each variation object
+          const variationBlocks = variationsStr.match(/\{[^{}]*"name"[^{}]*"options"[^{}]*\[.*?\][^{}]*\}/g) || [];
+          
+          for (const block of variationBlocks) {
+            const nameMatch = block.match(/"name"\s*:\s*"([^"]+)"/);
+            const optionsMatch = block.match(/"options"\s*:\s*\[(.*?)\]/);
+            
+            if (nameMatch && optionsMatch) {
+              const variantName = nameMatch[1];
+              const optionsStr = optionsMatch[1];
+              const options = (optionsStr.match(/"([^"]+)"/g) || []).map(o => o.replace(/"/g, ''));
+              
+              if (options.length > 0) {
+                const lowerName = variantName.toLowerCase();
+                let type = 'other';
+                
+                if (lowerName.includes('warna') || lowerName.includes('color') || lowerName.includes('colour')) {
+                  type = 'color';
+                } else if (lowerName.includes('ukuran') || lowerName.includes('size') || lowerName.match(/^[smlx]+$/)) {
+                  type = 'size';
+                } else if (lowerName.includes('model') || lowerName.includes('tipe') || lowerName.includes('type') || lowerName.includes('varian')) {
+                  type = 'category';
+                } else if (lowerName.includes('berat') || lowerName.includes('weight') || lowerName.includes('gram') || lowerName.includes('kg')) {
+                  type = 'weight';
+                }
+                
+                result.variants.push({
+                  type,
+                  name: variantName,
+                  options: options.slice(0, 20), // Limit to 20 options
+                });
+              }
+            }
           }
           
-          result.variants.push({
-            type,
-            name: names[i],
-            options: optionsList[i] || [],
-          });
-        }
-        
-        if (result.variants.length > 0) {
-          result.hasVariants = true;
-          console.log('Found Shopee variants:', result.variants);
-        }
-      } catch (e) {
-        console.error('Error parsing Shopee variants:', e);
-      }
-    }
-    
-    // Look for price range in models
-    const priceMinMatch = html.match(/"price_min"\s*:\s*(\d+)/);
-    const priceMaxMatch = html.match(/"price_max"\s*:\s*(\d+)/);
-    
-    if (priceMinMatch && priceMaxMatch) {
-      const min = parseInt(priceMinMatch[1]);
-      const max = parseInt(priceMaxMatch[1]);
-      if (min !== max && min > 0 && max > min) {
-        result.priceRange = { min, max };
-        console.log('Found Shopee price range:', result.priceRange);
-      }
-    }
-  }
-
-  // For Tokopedia
-  if (url.includes('tokopedia')) {
-    // Look for variant structure
-    const variantMatch = html.match(/"variant"\s*:\s*(\{[\s\S]*?"options"[\s\S]*?\})/);
-    if (variantMatch) {
-      try {
-        // Extract variant names
-        const variantNamesMatch = html.matchAll(/"variantName"\s*:\s*"([^"]+)"/g);
-        const optionNamesMatch = html.matchAll(/"optionName"\s*:\s*"([^"]+)"/g);
-        
-        const variantNames: string[] = [];
-        const optionNames: string[] = [];
-        
-        for (const match of variantNamesMatch) {
-          if (!variantNames.includes(match[1])) {
-            variantNames.push(match[1]);
+          if (result.variants.length > 0) {
+            result.hasVariants = true;
+            console.log('Found Shopee variants:', JSON.stringify(result.variants));
           }
+        } catch (e) {
+          console.error('Error parsing Shopee tier_variations:', e);
         }
-        
-        for (const match of optionNamesMatch) {
-          optionNames.push(match[1]);
-        }
-        
-        // Group options by variant
-        for (const variantName of variantNames) {
-          const lowerName = variantName.toLowerCase();
-          let type = 'other';
-          
-          if (lowerName.includes('warna') || lowerName.includes('color')) {
-            type = 'color';
-          } else if (lowerName.includes('ukuran') || lowerName.includes('size')) {
-            type = 'size';
-          } else if (lowerName.includes('model') || lowerName.includes('tipe')) {
-            type = 'category';
-          }
-          
-          result.variants.push({
-            type,
-            name: variantName,
-            options: optionNames.slice(0, 10), // Limit options
-          });
-        }
-        
-        if (result.variants.length > 0) {
-          result.hasVariants = true;
-          console.log('Found Tokopedia variants:', result.variants);
-        }
-      } catch (e) {
-        console.error('Error parsing Tokopedia variants:', e);
-      }
-    }
-    
-    // Alternative Tokopedia variant detection
-    const childMatch = html.match(/"children"\s*:\s*\[([\s\S]*?)\]/);
-    if (childMatch && !result.hasVariants) {
-      // Look for price variations
-      const prices: number[] = [];
-      const priceMatches = childMatch[1].matchAll(/"price"\s*:\s*(\d+)/g);
-      for (const match of priceMatches) {
-        prices.push(parseInt(match[1]));
       }
       
-      if (prices.length > 1) {
-        const min = Math.min(...prices);
-        const max = Math.max(...prices);
-        if (min !== max && min > 0) {
-          result.priceRange = { min, max };
+      // Look for price range in models
+      const priceMinMatch = html.match(/"price_min"\s*:\s*(\d+)/);
+      const priceMaxMatch = html.match(/"price_max"\s*:\s*(\d+)/);
+      
+      if (priceMinMatch && priceMaxMatch) {
+        const min = parseInt(priceMinMatch[1]);
+        const max = parseInt(priceMaxMatch[1]);
+        // Shopee stores prices in cents (x100000), normalize
+        const normalizedMin = min > 100000000 ? Math.round(min / 100000) : min;
+        const normalizedMax = max > 100000000 ? Math.round(max / 100000) : max;
+        
+        if (normalizedMin !== normalizedMax && normalizedMin > 0 && normalizedMax > normalizedMin) {
+          result.priceRange = { min: normalizedMin, max: normalizedMax };
           result.hasVariants = true;
-          console.log('Found Tokopedia price range from children:', result.priceRange);
+          console.log('Found Shopee price range:', result.priceRange);
         }
       }
     }
-  }
 
-  // Generic variant detection
-  if (!result.hasVariants) {
-    // Look for common variant patterns
-    const sizePattern = /(?:ukuran|size)\s*[:=]\s*([A-Z0-9,\s/]+)/gi;
-    const colorPattern = /(?:warna|color)\s*[:=]\s*([a-zA-Z0-9,\s/]+)/gi;
-    
-    const sizeMatch = sizePattern.exec(html);
-    if (sizeMatch && sizeMatch[1]) {
-      const options = sizeMatch[1].split(/[,/]/).map(s => s.trim()).filter(s => s);
-      if (options.length > 0) {
-        result.variants.push({ type: 'size', name: 'Ukuran', options });
-        result.hasVariants = true;
+    // ============ TOKOPEDIA ============
+    if (url.includes('tokopedia')) {
+      // Method 1: Look for variant structure in GraphQL data
+      const variantMatch = html.match(/"variant"\s*:\s*(\{[\s\S]*?"children"[\s\S]*?\})/);
+      if (variantMatch) {
+        try {
+          // Extract variant names
+          const variantNamesMatches = html.matchAll(/"identifier"\s*:\s*"([^"]+)"/g);
+          const optionNamesMatches = html.matchAll(/"option"\s*:\s*\[\s*\{[^}]*"value"\s*:\s*"([^"]+)"/g);
+          
+          const seenNames = new Set<string>();
+          const variants: ProductVariant[] = [];
+          
+          for (const match of variantNamesMatches) {
+            const name = match[1];
+            if (!seenNames.has(name) && name.length < 50) {
+              seenNames.add(name);
+              const lowerName = name.toLowerCase();
+              let type = 'other';
+              
+              if (lowerName.includes('warna') || lowerName.includes('color')) {
+                type = 'color';
+              } else if (lowerName.includes('ukuran') || lowerName.includes('size')) {
+                type = 'size';
+              } else if (lowerName.includes('model') || lowerName.includes('tipe')) {
+                type = 'category';
+              }
+              
+              variants.push({
+                type,
+                name,
+                options: [],
+              });
+            }
+          }
+          
+          // Try to get options from children
+          const childrenMatch = html.match(/"children"\s*:\s*\[([\s\S]*?)\](?=\s*[,}])/);
+          if (childrenMatch && variants.length > 0) {
+            const optionMatches = childrenMatch[1].matchAll(/"optionName"\s*:\s*\[([^\]]+)\]/g);
+            for (const match of optionMatches) {
+              const options = (match[1].match(/"([^"]+)"/g) || []).map(o => o.replace(/"/g, ''));
+              if (options.length > 0 && variants[0]) {
+                variants[0].options = [...new Set([...variants[0].options, ...options])].slice(0, 20);
+              }
+            }
+          }
+          
+          if (variants.length > 0 && variants.some(v => v.options.length > 0)) {
+            result.variants = variants.filter(v => v.options.length > 0);
+            result.hasVariants = true;
+            console.log('Found Tokopedia variants:', JSON.stringify(result.variants));
+          }
+        } catch (e) {
+          console.error('Error parsing Tokopedia variants:', e);
+        }
+      }
+      
+      // Method 2: Look for price variations in children
+      if (!result.hasVariants) {
+        const childMatch = html.match(/"children"\s*:\s*\[([\s\S]*?)\](?=\s*[,}])/);
+        if (childMatch) {
+          const prices: number[] = [];
+          const priceMatches = childMatch[1].matchAll(/"price"\s*:\s*(\d+)/g);
+          for (const match of priceMatches) {
+            const price = parseInt(match[1]);
+            if (price > 1000 && price < 100000000) {
+              prices.push(price);
+            }
+          }
+          
+          if (prices.length > 1) {
+            const uniquePrices = [...new Set(prices)];
+            if (uniquePrices.length > 1) {
+              const min = Math.min(...uniquePrices);
+              const max = Math.max(...uniquePrices);
+              result.priceRange = { min, max };
+              result.hasVariants = true;
+              console.log('Found Tokopedia price range from children:', result.priceRange);
+            }
+          }
+        }
       }
     }
-    
-    const colorMatch = colorPattern.exec(html);
-    if (colorMatch && colorMatch[1]) {
-      const options = colorMatch[1].split(/[,/]/).map(s => s.trim()).filter(s => s);
-      if (options.length > 0) {
-        result.variants.push({ type: 'color', name: 'Warna', options });
-        result.hasVariants = true;
+
+    // ============ LAZADA ============
+    if (url.includes('lazada')) {
+      try {
+        // Lazada stores variant data in skuInfos
+        const skuInfoMatch = html.match(/"skuInfos"\s*:\s*(\[[\s\S]*?\])(?=\s*[,}])/);
+        if (skuInfoMatch) {
+          const prices: number[] = [];
+          const priceMatches = skuInfoMatch[1].matchAll(/"price"\s*:\s*(\d+(?:\.\d+)?)/g);
+          for (const match of priceMatches) {
+            const price = Math.round(parseFloat(match[1]));
+            if (price > 1000 && price < 100000000) {
+              prices.push(price);
+            }
+          }
+          
+          if (prices.length > 1) {
+            const uniquePrices = [...new Set(prices)];
+            if (uniquePrices.length > 1) {
+              result.priceRange = { min: Math.min(...uniquePrices), max: Math.max(...uniquePrices) };
+              result.hasVariants = true;
+            }
+          }
+        }
+        
+        // Look for properties (color, size, etc)
+        const propsMatch = html.match(/"properties"\s*:\s*(\[[\s\S]*?\])(?=\s*[,}])/);
+        if (propsMatch) {
+          const propBlocks = propsMatch[1].match(/\{[^{}]*"name"[^{}]*"values"[^{}]*\}/g) || [];
+          
+          for (const block of propBlocks) {
+            const nameMatch = block.match(/"name"\s*:\s*"([^"]+)"/);
+            const valuesMatch = block.match(/"values"\s*:\s*\[(.*?)\]/);
+            
+            if (nameMatch && valuesMatch) {
+              const name = nameMatch[1];
+              const values = (valuesMatch[1].match(/"([^"]+)"/g) || []).map(v => v.replace(/"/g, ''));
+              
+              if (values.length > 0) {
+                const lowerName = name.toLowerCase();
+                let type = 'other';
+                if (lowerName.includes('color') || lowerName.includes('warna')) type = 'color';
+                else if (lowerName.includes('size') || lowerName.includes('ukuran')) type = 'size';
+                
+                result.variants.push({ type, name, options: values.slice(0, 20) });
+                result.hasVariants = true;
+              }
+            }
+          }
+        }
+        
+        if (result.hasVariants) {
+          console.log('Found Lazada variants:', JSON.stringify(result.variants));
+        }
+      } catch (e) {
+        console.error('Error parsing Lazada variants:', e);
       }
     }
+
+    // ============ BUKALAPAK ============
+    if (url.includes('bukalapak')) {
+      try {
+        // Look for variant_options
+        const variantMatch = html.match(/"variant_options"\s*:\s*(\[[\s\S]*?\])(?=\s*[,}])/);
+        if (variantMatch) {
+          const optionBlocks = variantMatch[1].match(/\{[^{}]*"name"[^{}]*"values"[^{}]*\}/g) || [];
+          
+          for (const block of optionBlocks) {
+            const nameMatch = block.match(/"name"\s*:\s*"([^"]+)"/);
+            const valuesMatch = block.match(/"values"\s*:\s*\[(.*?)\]/);
+            
+            if (nameMatch && valuesMatch) {
+              const name = nameMatch[1];
+              const values = (valuesMatch[1].match(/"([^"]+)"/g) || []).map(v => v.replace(/"/g, ''));
+              
+              if (values.length > 0) {
+                const lowerName = name.toLowerCase();
+                let type = 'other';
+                if (lowerName.includes('warna') || lowerName.includes('color')) type = 'color';
+                else if (lowerName.includes('ukuran') || lowerName.includes('size')) type = 'size';
+                
+                result.variants.push({ type, name, options: values.slice(0, 20) });
+                result.hasVariants = true;
+              }
+            }
+          }
+        }
+        
+        // Look for price variations
+        const variantSkusMatch = html.match(/"variant_skus"\s*:\s*(\[[\s\S]*?\])(?=\s*[,}])/);
+        if (variantSkusMatch) {
+          const prices: number[] = [];
+          const priceMatches = variantSkusMatch[1].matchAll(/"price"\s*:\s*(\d+)/g);
+          for (const match of priceMatches) {
+            prices.push(parseInt(match[1]));
+          }
+          
+          if (prices.length > 1) {
+            const uniquePrices = [...new Set(prices)].filter(p => p > 1000);
+            if (uniquePrices.length > 1) {
+              result.priceRange = { min: Math.min(...uniquePrices), max: Math.max(...uniquePrices) };
+              result.hasVariants = true;
+            }
+          }
+        }
+        
+        if (result.hasVariants) {
+          console.log('Found Bukalapak variants:', JSON.stringify(result.variants));
+        }
+      } catch (e) {
+        console.error('Error parsing Bukalapak variants:', e);
+      }
+    }
+
+    // ============ BLIBLI ============
+    if (url.includes('blibli')) {
+      try {
+        // Blibli uses itemVariants
+        const variantMatch = html.match(/"itemVariants"\s*:\s*(\[[\s\S]*?\])(?=\s*[,}])/);
+        if (variantMatch) {
+          const optionBlocks = variantMatch[1].match(/\{[^{}]*"variantName"[^{}]*"options"[^{}]*\}/g) || [];
+          
+          for (const block of optionBlocks) {
+            const nameMatch = block.match(/"variantName"\s*:\s*"([^"]+)"/);
+            const optionsMatch = block.match(/"options"\s*:\s*\[(.*?)\]/);
+            
+            if (nameMatch && optionsMatch) {
+              const name = nameMatch[1];
+              const options = (optionsMatch[1].match(/"([^"]+)"/g) || []).map(o => o.replace(/"/g, ''));
+              
+              if (options.length > 0) {
+                const lowerName = name.toLowerCase();
+                let type = 'other';
+                if (lowerName.includes('warna') || lowerName.includes('color')) type = 'color';
+                else if (lowerName.includes('ukuran') || lowerName.includes('size')) type = 'size';
+                
+                result.variants.push({ type, name, options: options.slice(0, 20) });
+                result.hasVariants = true;
+              }
+            }
+          }
+        }
+        
+        // Look for price range
+        const pricesMatch = html.match(/"itemSkus"\s*:\s*(\[[\s\S]*?\])(?=\s*[,}])/);
+        if (pricesMatch) {
+          const prices: number[] = [];
+          const priceMatches = pricesMatch[1].matchAll(/"salePrice"\s*:\s*(\d+)/g);
+          for (const match of priceMatches) {
+            prices.push(parseInt(match[1]));
+          }
+          
+          if (prices.length > 1) {
+            const uniquePrices = [...new Set(prices)].filter(p => p > 1000);
+            if (uniquePrices.length > 1) {
+              result.priceRange = { min: Math.min(...uniquePrices), max: Math.max(...uniquePrices) };
+              result.hasVariants = true;
+            }
+          }
+        }
+        
+        if (result.hasVariants) {
+          console.log('Found Blibli variants:', JSON.stringify(result.variants));
+        }
+      } catch (e) {
+        console.error('Error parsing Blibli variants:', e);
+      }
+    }
+
+    // ============ GENERIC FALLBACK ============
+    if (!result.hasVariants) {
+      // Try generic patterns that work across platforms
+      const genericVariantPatterns = [
+        /"variants?"\s*:\s*\[([\s\S]*?)\](?=\s*[,}])/i,
+        /"options?"\s*:\s*\[([\s\S]*?)\](?=\s*[,}])/i,
+        /"selections?"\s*:\s*\[([\s\S]*?)\](?=\s*[,}])/i,
+      ];
+      
+      for (const pattern of genericVariantPatterns) {
+        const match = pattern.exec(html);
+        if (match) {
+          // Look for names inside
+          const nameMatches = match[1].matchAll(/"(?:name|label|title)"\s*:\s*"([^"]+)"/g);
+          const foundNames: string[] = [];
+          
+          for (const nameMatch of nameMatches) {
+            if (nameMatch[1] && nameMatch[1].length < 50 && !foundNames.includes(nameMatch[1])) {
+              foundNames.push(nameMatch[1]);
+            }
+          }
+          
+          if (foundNames.length > 1) {
+            result.variants.push({
+              type: 'other',
+              name: 'Varian',
+              options: foundNames.slice(0, 20),
+            });
+            result.hasVariants = true;
+            console.log('Found generic variants:', foundNames);
+            break;
+          }
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error('Error in extractVariants:', error);
+    // Return empty result on error, don't crash
   }
 
   return result;
@@ -289,104 +548,231 @@ function extractPrice(html: string, url: string, variantInfo?: VariantInfo): {
   let originalPrice: number | null = null;
   let priceRange: { min: number; max: number } | undefined = variantInfo?.priceRange;
 
-  // For Shopee
-  if (url.includes('shopee')) {
-    // Look for price in JSON data
-    const pricePatterns = [
-      /"price"\s*:\s*(\d+)/g,
-      /"final_price"\s*:\s*(\d+)/g,
-      /"price_before_discount"\s*:\s*(\d+)/g,
-      /price[_-]?current[^>]*>.*?Rp\s*([\d.,]+)/gi,
-      /Rp\s*([\d.,]+)<\/span>/gi,
-    ];
-    
-    // If there's a price range, use the minimum as the display price
-    if (priceRange) {
-      price = priceRange.min;
-    } else {
-      for (const pattern of pricePatterns) {
-        const match = pattern.exec(html);
-        if (match && match[1]) {
-          const parsed = parseInt(match[1].replace(/[.,]/g, ''));
-          if (parsed > 1000 && parsed < 100000000) { // Reasonable price range
-            if (!price || parsed < price) {
+  try {
+    // ============ SHOPEE ============
+    if (url.includes('shopee')) {
+      // If there's a price range, use the minimum as the display price
+      if (priceRange) {
+        price = priceRange.min;
+      } else {
+        // Look for price in JSON data - try multiple patterns
+        const pricePatterns = [
+          /"price"\s*:\s*(\d+)/,
+          /"final_price"\s*:\s*(\d+)/,
+        ];
+        
+        for (const pattern of pricePatterns) {
+          const match = pattern.exec(html);
+          if (match && match[1]) {
+            let parsed = parseInt(match[1]);
+            // Shopee stores prices in cents (x100000), normalize if needed
+            if (parsed > 100000000) {
+              parsed = Math.round(parsed / 100000);
+            }
+            if (parsed > 1000 && parsed < 100000000) {
+              if (!price || parsed < price) {
+                price = parsed;
+              }
+            }
+          }
+        }
+      }
+      
+      // Look for original/before discount price
+      const origMatch = /"price_before_discount"\s*:\s*(\d+)/.exec(html);
+      if (origMatch && origMatch[1]) {
+        let parsed = parseInt(origMatch[1]);
+        if (parsed > 100000000) {
+          parsed = Math.round(parsed / 100000);
+        }
+        if (parsed > (price || 0)) {
+          originalPrice = parsed;
+        }
+      }
+    }
+
+    // ============ TOKOPEDIA ============
+    if (url.includes('tokopedia')) {
+      if (priceRange) {
+        price = priceRange.min;
+      } else {
+        // Tokopedia typically has price in meta tags or JSON-LD
+        const metaPriceMatch = html.match(/property="product:price:amount"[^>]*content="(\d+)"/i) ||
+                               html.match(/content="(\d+)"[^>]*property="product:price:amount"/i);
+        if (metaPriceMatch && metaPriceMatch[1]) {
+          price = parseInt(metaPriceMatch[1]);
+        }
+        
+        // Try JSON patterns
+        if (!price) {
+          const jsonPriceMatch = /"price"\s*:\s*(\d+)/.exec(html);
+          if (jsonPriceMatch && jsonPriceMatch[1]) {
+            const parsed = parseInt(jsonPriceMatch[1]);
+            if (parsed > 1000 && parsed < 100000000) {
               price = parsed;
             }
           }
         }
       }
-    }
-    
-    // Look for original/before discount price
-    const origMatch = /"price_before_discount"\s*:\s*(\d+)/.exec(html);
-    if (origMatch && origMatch[1]) {
-      const parsed = parseInt(origMatch[1]);
-      if (parsed > (price || 0)) {
-        originalPrice = parsed;
+      
+      // Look for original price (slashed price)
+      const origPriceMatch = /"originalPrice"\s*:\s*(\d+)/.exec(html) ||
+                             /"slashPrice"\s*:\s*(\d+)/.exec(html);
+      if (origPriceMatch && origPriceMatch[1]) {
+        const parsed = parseInt(origPriceMatch[1]);
+        if (parsed > (price || 0)) {
+          originalPrice = parsed;
+        }
       }
     }
-  }
 
-  // For Tokopedia
-  if (url.includes('tokopedia')) {
-    // If there's a price range, use the minimum as the display price
-    if (priceRange) {
-      price = priceRange.min;
-    } else {
-      // Tokopedia typically has price in meta tags or JSON-LD
-      const metaPriceMatch = html.match(/property="product:price:amount"[^>]*content="(\d+)"/i) ||
-                             html.match(/content="(\d+)"[^>]*property="product:price:amount"/i);
-      if (metaPriceMatch && metaPriceMatch[1]) {
-        price = parseInt(metaPriceMatch[1]);
+    // ============ LAZADA ============
+    if (url.includes('lazada')) {
+      if (priceRange) {
+        price = priceRange.min;
+      } else {
+        const pricePatterns = [
+          /"price"\s*:\s*"?(\d+(?:\.\d+)?)"?/,
+          /"salePrice"\s*:\s*"?(\d+(?:\.\d+)?)"?/,
+          /"specialPrice"\s*:\s*"?(\d+(?:\.\d+)?)"?/,
+        ];
+        
+        for (const pattern of pricePatterns) {
+          const match = pattern.exec(html);
+          if (match && match[1]) {
+            const parsed = Math.round(parseFloat(match[1]));
+            if (parsed > 1000 && parsed < 100000000) {
+              price = parsed;
+              break;
+            }
+          }
+        }
+      }
+      
+      // Original price
+      const origMatch = /"originalPrice"\s*:\s*"?(\d+(?:\.\d+)?)"?/.exec(html);
+      if (origMatch && origMatch[1]) {
+        const parsed = Math.round(parseFloat(origMatch[1]));
+        if (parsed > (price || 0)) {
+          originalPrice = parsed;
+        }
+      }
+    }
+
+    // ============ BUKALAPAK ============
+    if (url.includes('bukalapak')) {
+      if (priceRange) {
+        price = priceRange.min;
+      } else {
+        const pricePatterns = [
+          /"price"\s*:\s*(\d+)/,
+          /"discounted_price"\s*:\s*(\d+)/,
+          /"min_price"\s*:\s*(\d+)/,
+        ];
+        
+        for (const pattern of pricePatterns) {
+          const match = pattern.exec(html);
+          if (match && match[1]) {
+            const parsed = parseInt(match[1]);
+            if (parsed > 1000 && parsed < 100000000) {
+              price = parsed;
+              break;
+            }
+          }
+        }
+      }
+      
+      // Original price
+      const origMatch = /"original_price"\s*:\s*(\d+)/.exec(html) ||
+                        /"normal_price"\s*:\s*(\d+)/.exec(html);
+      if (origMatch && origMatch[1]) {
+        const parsed = parseInt(origMatch[1]);
+        if (parsed > (price || 0)) {
+          originalPrice = parsed;
+        }
+      }
+    }
+
+    // ============ BLIBLI ============
+    if (url.includes('blibli')) {
+      if (priceRange) {
+        price = priceRange.min;
+      } else {
+        const pricePatterns = [
+          /"salePrice"\s*:\s*(\d+)/,
+          /"price"\s*:\s*(\d+)/,
+          /"displayPrice"\s*:\s*(\d+)/,
+        ];
+        
+        for (const pattern of pricePatterns) {
+          const match = pattern.exec(html);
+          if (match && match[1]) {
+            const parsed = parseInt(match[1]);
+            if (parsed > 1000 && parsed < 100000000) {
+              price = parsed;
+              break;
+            }
+          }
+        }
+      }
+      
+      // Original price
+      const origMatch = /"regularPrice"\s*:\s*(\d+)/.exec(html) ||
+                        /"originalPrice"\s*:\s*(\d+)/.exec(html);
+      if (origMatch && origMatch[1]) {
+        const parsed = parseInt(origMatch[1]);
+        if (parsed > (price || 0)) {
+          originalPrice = parsed;
+        }
+      }
+    }
+
+    // ============ GENERIC FALLBACK ============
+    if (!price) {
+      // Try meta tags first (most reliable)
+      const metaPatterns = [
+        /property="product:price:amount"[^>]*content="(\d+)"/i,
+        /content="(\d+)"[^>]*property="product:price:amount"/i,
+        /itemprop="price"[^>]*content="(\d+)"/i,
+      ];
+      
+      for (const pattern of metaPatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1]) {
+          const parsed = parseInt(match[1]);
+          if (parsed > 1000 && parsed < 100000000) {
+            price = parsed;
+            break;
+          }
+        }
       }
       
       // Try JSON patterns
       if (!price) {
-        const jsonPriceMatch = /"price"\s*:\s*(\d+)/.exec(html) ||
-                               /"priceCurrency".*?"price"\s*:\s*(\d+)/.exec(html);
-        if (jsonPriceMatch && jsonPriceMatch[1]) {
-          const parsed = parseInt(jsonPriceMatch[1]);
-          if (parsed > 1000 && parsed < 100000000) {
-            price = parsed;
+        const jsonPatterns = [
+          /"price"\s*:\s*"?(\d+)"?/,
+          /"currentPrice"\s*:\s*"?(\d+)"?/,
+        ];
+        
+        for (const pattern of jsonPatterns) {
+          const match = pattern.exec(html);
+          if (match && match[1]) {
+            const parsed = parseInt(match[1]);
+            if (parsed > 1000 && parsed < 100000000) {
+              price = parsed;
+              break;
+            }
           }
         }
       }
     }
-    
-    // Look for original price (slashed price)
-    const origPriceMatch = /"originalPrice"\s*:\s*(\d+)/.exec(html) ||
-                           /"slashPrice"\s*:\s*(\d+)/.exec(html);
-    if (origPriceMatch && origPriceMatch[1]) {
-      const parsed = parseInt(origPriceMatch[1]);
-      if (parsed > (price || 0)) {
-        originalPrice = parsed;
-      }
-    }
-  }
 
-  // Generic price extraction
-  if (!price) {
-    const genericPatterns = [
-      /Rp\s*([\d.,]+)\s*(?:<|$)/gi,
-      /price[^>]*>\s*Rp\s*([\d.,]+)/gi,
-      /"price"\s*:\s*"?(\d+)"?/g,
-    ];
-    
-    for (const pattern of genericPatterns) {
-      const match = pattern.exec(html);
-      if (match && match[1]) {
-        const parsed = parseInt(match[1].replace(/[.,]/g, ''));
-        if (parsed > 1000 && parsed < 100000000) {
-          price = parsed;
-          break;
-        }
-      }
+    if (price) {
+      console.log('Extracted price from HTML:', price, 'Original:', originalPrice, 'Range:', priceRange);
+      return { price, originalPrice, priceRange };
     }
-  }
-
-  if (price) {
-    console.log('Extracted price from HTML:', price, 'Original:', originalPrice, 'Range:', priceRange);
-    return { price, originalPrice, priceRange };
+  } catch (error) {
+    console.error('Error extracting price:', error);
   }
   
   console.log('Could not extract price from HTML');
@@ -398,36 +784,136 @@ function extractRating(html: string, url: string): { rating: number; totalReview
   let rating: number | null = null;
   let totalReviews: number | null = null;
 
-  // For Shopee
-  if (url.includes('shopee')) {
-    const ratingMatch = /"rating"\s*:\s*([\d.]+)/.exec(html);
-    if (ratingMatch && ratingMatch[1]) {
-      rating = parseFloat(ratingMatch[1]);
+  try {
+    // ============ SHOPEE ============
+    if (url.includes('shopee')) {
+      const ratingMatch = /"rating"\s*:\s*([\d.]+)/.exec(html);
+      if (ratingMatch && ratingMatch[1]) {
+        const parsed = parseFloat(ratingMatch[1]);
+        if (parsed >= 0 && parsed <= 5) {
+          rating = parsed;
+        }
+      }
+      const reviewMatch = /"rating_count"\s*:\s*\[?(\d+)/.exec(html) ||
+                          /"cmt_count"\s*:\s*(\d+)/.exec(html) ||
+                          /"sold"\s*:\s*(\d+)/.exec(html);
+      if (reviewMatch && reviewMatch[1]) {
+        totalReviews = parseInt(reviewMatch[1]);
+      }
     }
-    const reviewMatch = /"rating_count"\s*:\s*\[?(\d+)/.exec(html) ||
-                        /"sold"\s*:\s*(\d+)/.exec(html);
-    if (reviewMatch && reviewMatch[1]) {
-      totalReviews = parseInt(reviewMatch[1]);
-    }
-  }
 
-  // For Tokopedia
-  if (url.includes('tokopedia')) {
-    const ratingMatch = /"ratingScore"\s*:\s*([\d.]+)/.exec(html) ||
-                        /"rating"\s*:\s*([\d.]+)/.exec(html);
-    if (ratingMatch && ratingMatch[1]) {
-      rating = parseFloat(ratingMatch[1]);
+    // ============ TOKOPEDIA ============
+    if (url.includes('tokopedia')) {
+      const ratingMatch = /"ratingScore"\s*:\s*([\d.]+)/.exec(html) ||
+                          /"rating"\s*:\s*([\d.]+)/.exec(html);
+      if (ratingMatch && ratingMatch[1]) {
+        const parsed = parseFloat(ratingMatch[1]);
+        if (parsed >= 0 && parsed <= 5) {
+          rating = parsed;
+        }
+      }
+      const reviewMatch = /"reviewCount"\s*:\s*(\d+)/.exec(html) ||
+                          /"countReview"\s*:\s*(\d+)/.exec(html) ||
+                          /"totalReview"\s*:\s*(\d+)/.exec(html);
+      if (reviewMatch && reviewMatch[1]) {
+        totalReviews = parseInt(reviewMatch[1]);
+      }
     }
-    const reviewMatch = /"reviewCount"\s*:\s*(\d+)/.exec(html) ||
-                        /"countReview"\s*:\s*(\d+)/.exec(html);
-    if (reviewMatch && reviewMatch[1]) {
-      totalReviews = parseInt(reviewMatch[1]);
-    }
-  }
 
-  if (rating !== null) {
-    console.log('Extracted rating from HTML:', rating, 'Reviews:', totalReviews);
-    return { rating, totalReviews: totalReviews || 0 };
+    // ============ LAZADA ============
+    if (url.includes('lazada')) {
+      const ratingMatch = /"average"\s*:\s*([\d.]+)/.exec(html) ||
+                          /"ratingScore"\s*:\s*([\d.]+)/.exec(html);
+      if (ratingMatch && ratingMatch[1]) {
+        const parsed = parseFloat(ratingMatch[1]);
+        if (parsed >= 0 && parsed <= 5) {
+          rating = parsed;
+        }
+      }
+      const reviewMatch = /"ratingCount"\s*:\s*(\d+)/.exec(html) ||
+                          /"reviewCount"\s*:\s*(\d+)/.exec(html);
+      if (reviewMatch && reviewMatch[1]) {
+        totalReviews = parseInt(reviewMatch[1]);
+      }
+    }
+
+    // ============ BUKALAPAK ============
+    if (url.includes('bukalapak')) {
+      const ratingMatch = /"average_rate"\s*:\s*([\d.]+)/.exec(html) ||
+                          /"rating"\s*:\s*([\d.]+)/.exec(html);
+      if (ratingMatch && ratingMatch[1]) {
+        const parsed = parseFloat(ratingMatch[1]);
+        if (parsed >= 0 && parsed <= 5) {
+          rating = parsed;
+        }
+      }
+      const reviewMatch = /"review_count"\s*:\s*(\d+)/.exec(html) ||
+                          /"reviews_count"\s*:\s*(\d+)/.exec(html);
+      if (reviewMatch && reviewMatch[1]) {
+        totalReviews = parseInt(reviewMatch[1]);
+      }
+    }
+
+    // ============ BLIBLI ============
+    if (url.includes('blibli')) {
+      const ratingMatch = /"averageRating"\s*:\s*([\d.]+)/.exec(html) ||
+                          /"rating"\s*:\s*([\d.]+)/.exec(html);
+      if (ratingMatch && ratingMatch[1]) {
+        const parsed = parseFloat(ratingMatch[1]);
+        if (parsed >= 0 && parsed <= 5) {
+          rating = parsed;
+        }
+      }
+      const reviewMatch = /"totalReview"\s*:\s*(\d+)/.exec(html) ||
+                          /"reviewCount"\s*:\s*(\d+)/.exec(html);
+      if (reviewMatch && reviewMatch[1]) {
+        totalReviews = parseInt(reviewMatch[1]);
+      }
+    }
+
+    // ============ GENERIC FALLBACK ============
+    if (rating === null) {
+      // Try generic rating patterns
+      const genericRatingPatterns = [
+        /"aggregateRating"[^}]*"ratingValue"\s*:\s*"?([\d.]+)"?/i,
+        /"ratingValue"\s*:\s*"?([\d.]+)"?/i,
+        /itemprop="ratingValue"[^>]*content="([\d.]+)"/i,
+      ];
+      
+      for (const pattern of genericRatingPatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1]) {
+          const parsed = parseFloat(match[1]);
+          if (parsed >= 0 && parsed <= 5) {
+            rating = parsed;
+            break;
+          }
+        }
+      }
+    }
+    
+    if (totalReviews === null) {
+      const genericReviewPatterns = [
+        /"reviewCount"\s*:\s*"?(\d+)"?/i,
+        /"ratingCount"\s*:\s*"?(\d+)"?/i,
+        /itemprop="reviewCount"[^>]*content="(\d+)"/i,
+      ];
+      
+      for (const pattern of genericReviewPatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1]) {
+          totalReviews = parseInt(match[1]);
+          break;
+        }
+      }
+    }
+
+    if (rating !== null) {
+      console.log('Extracted rating from HTML:', rating, 'Reviews:', totalReviews);
+      return { rating, totalReviews: totalReviews || 0 };
+    }
+  } catch (error) {
+    console.error('Error extracting rating:', error);
   }
   
   return null;
@@ -435,28 +921,41 @@ function extractRating(html: string, url: string): { rating: number; totalReview
 
 // Extract product name from HTML
 function extractProductName(html: string, url: string): string | null {
-  // Try og:title first
-  const ogTitleMatch = html.match(/property="og:title"[^>]*content="([^"]+)"/i) ||
-                       html.match(/content="([^"]+)"[^>]*property="og:title"/i);
-  if (ogTitleMatch && ogTitleMatch[1]) {
-    let title = ogTitleMatch[1];
-    // Clean up common suffixes
-    title = title.replace(/\s*[-|]\s*(Shopee|Tokopedia|Lazada|Bukalapak).*$/i, '');
-    if (title.length > 5) {
-      console.log('Extracted product name from og:title:', title);
-      return title;
+  try {
+    // Try og:title first
+    const ogTitleMatch = html.match(/property="og:title"[^>]*content="([^"]+)"/i) ||
+                         html.match(/content="([^"]+)"[^>]*property="og:title"/i);
+    if (ogTitleMatch && ogTitleMatch[1]) {
+      let title = ogTitleMatch[1];
+      // Clean up common suffixes for all platforms
+      title = title.replace(/\s*[-|]\s*(Shopee|Tokopedia|Lazada|Bukalapak|Blibli|Indonesia).*$/i, '');
+      title = title.replace(/\s*\|\s*$/i, ''); // Remove trailing pipe
+      if (title.length > 5) {
+        console.log('Extracted product name from og:title:', title);
+        return title;
+      }
     }
-  }
 
-  // Try meta title
-  const titleMatch = html.match(/<title[^>]*>([^<]+)</i);
-  if (titleMatch && titleMatch[1]) {
-    let title = titleMatch[1];
-    title = title.replace(/\s*[-|]\s*(Shopee|Tokopedia|Lazada|Bukalapak).*$/i, '');
-    if (title.length > 5) {
-      console.log('Extracted product name from title:', title);
-      return title;
+    // Try meta title
+    const titleMatch = html.match(/<title[^>]*>([^<]+)</i);
+    if (titleMatch && titleMatch[1]) {
+      let title = titleMatch[1];
+      title = title.replace(/\s*[-|]\s*(Shopee|Tokopedia|Lazada|Bukalapak|Blibli|Indonesia).*$/i, '');
+      title = title.replace(/\s*\|\s*$/i, '');
+      if (title.length > 5) {
+        console.log('Extracted product name from title:', title);
+        return title;
+      }
     }
+    
+    // Try JSON-LD
+    const jsonLdMatch = html.match(/"name"\s*:\s*"([^"]+)"/);
+    if (jsonLdMatch && jsonLdMatch[1] && jsonLdMatch[1].length > 5) {
+      console.log('Extracted product name from JSON-LD:', jsonLdMatch[1]);
+      return jsonLdMatch[1];
+    }
+  } catch (error) {
+    console.error('Error extracting product name:', error);
   }
 
   return null;
@@ -540,12 +1039,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Detect platform from URL
-    let platform = 'unknown';
+    // Detect platform from URL - support all major Indonesian marketplaces
+    let platform: string = 'unknown';
     if (url.includes('tokopedia.com')) platform = 'tokopedia';
-    else if (url.includes('shopee.co.id') || url.includes('shopee.com')) platform = 'shopee';
+    else if (url.includes('shopee.co.id') || url.includes('shopee.com') || url.includes('shopee.sg')) platform = 'shopee';
     else if (url.includes('bukalapak.com')) platform = 'bukalapak';
-    else if (url.includes('lazada.co.id') || url.includes('lazada.com')) platform = 'lazada';
+    else if (url.includes('lazada.co.id') || url.includes('lazada.com') || url.includes('lazada.sg')) platform = 'lazada';
+    else if (url.includes('blibli.com')) platform = 'blibli';
 
     console.log('Detected platform:', platform);
 
