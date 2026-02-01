@@ -690,10 +690,14 @@ function extractPrice(html: string, url: string, variantInfo?: VariantInfo): {
       if (priceRange) {
         price = priceRange.min;
       } else {
-        // Look for price in JSON data - try multiple patterns
+        // Look for price in JSON data - try multiple patterns (Shopee has many formats)
         const pricePatterns = [
           /"price"\s*:\s*(\d+)/,
           /"final_price"\s*:\s*(\d+)/,
+          /"current_price"\s*:\s*(\d+)/,
+          /"item_basic"[\s\S]*?"price"\s*:\s*(\d+)/,
+          /"flash_sale"[\s\S]*?"price"\s*:\s*(\d+)/,
+          /"discount_price"\s*:\s*(\d+)/,
         ];
         
         for (const pattern of pricePatterns) {
@@ -711,17 +715,37 @@ function extractPrice(html: string, url: string, variantInfo?: VariantInfo): {
             }
           }
         }
+        
+        // Also try to extract from meta tags
+        if (!price) {
+          const metaPrice = html.match(/property="product:price:amount"[^>]*content="(\d+)"/i);
+          if (metaPrice && metaPrice[1]) {
+            const parsed = parseInt(metaPrice[1]);
+            if (parsed > 1000 && parsed < 100000000) {
+              price = parsed;
+            }
+          }
+        }
       }
       
       // Look for original/before discount price
-      const origMatch = /"price_before_discount"\s*:\s*(\d+)/.exec(html);
-      if (origMatch && origMatch[1]) {
-        let parsed = parseInt(origMatch[1]);
-        if (parsed > 100000000) {
-          parsed = Math.round(parsed / 100000);
-        }
-        if (parsed > (price || 0)) {
-          originalPrice = parsed;
+      const origPatterns = [
+        /"price_before_discount"\s*:\s*(\d+)/,
+        /"origin_price"\s*:\s*(\d+)/,
+        /"list_price"\s*:\s*(\d+)/,
+      ];
+      
+      for (const pattern of origPatterns) {
+        const origMatch = pattern.exec(html);
+        if (origMatch && origMatch[1]) {
+          let parsed = parseInt(origMatch[1]);
+          if (parsed > 100000000) {
+            parsed = Math.round(parsed / 100000);
+          }
+          if (parsed > (price || 0)) {
+            originalPrice = parsed;
+            break;
+          }
         }
       }
     }
@@ -766,30 +790,55 @@ function extractPrice(html: string, url: string, variantInfo?: VariantInfo): {
       if (priceRange) {
         price = priceRange.min;
       } else {
+        // Lazada has various price formats
         const pricePatterns = [
+          /"priceCurrency":\s*"IDR"[\s\S]*?"price"\s*:\s*"?(\d+(?:\.\d+)?)"?/,
           /"price"\s*:\s*"?(\d+(?:\.\d+)?)"?/,
           /"salePrice"\s*:\s*"?(\d+(?:\.\d+)?)"?/,
           /"specialPrice"\s*:\s*"?(\d+(?:\.\d+)?)"?/,
+          /"priceInfo"[\s\S]*?"price"\s*:\s*"?(\d+(?:\.\d+)?)"?/,
+          /"priceShow"\s*:\s*"Rp\s*([\d.,]+)"/,
         ];
         
         for (const pattern of pricePatterns) {
           const match = pattern.exec(html);
           if (match && match[1]) {
-            const parsed = Math.round(parseFloat(match[1]));
+            // Handle price with dots/commas (e.g., "1.500.000")
+            const cleanPrice = match[1].replace(/\./g, '').replace(/,/g, '');
+            const parsed = Math.round(parseFloat(cleanPrice));
             if (parsed > 1000 && parsed < 100000000) {
               price = parsed;
               break;
             }
           }
         }
+        
+        // Try meta tags
+        if (!price) {
+          const metaPrice = html.match(/property="product:price:amount"[^>]*content="(\d+)"/i);
+          if (metaPrice && metaPrice[1]) {
+            const parsed = parseInt(metaPrice[1]);
+            if (parsed > 1000 && parsed < 100000000) {
+              price = parsed;
+            }
+          }
+        }
       }
       
       // Original price
-      const origMatch = /"originalPrice"\s*:\s*"?(\d+(?:\.\d+)?)"?/.exec(html);
-      if (origMatch && origMatch[1]) {
-        const parsed = Math.round(parseFloat(origMatch[1]));
-        if (parsed > (price || 0)) {
-          originalPrice = parsed;
+      const origPatterns = [
+        /"originalPrice"\s*:\s*"?(\d+(?:\.\d+)?)"?/,
+        /"priceBefore"\s*:\s*"?(\d+(?:\.\d+)?)"?/,
+      ];
+      
+      for (const pattern of origPatterns) {
+        const origMatch = pattern.exec(html);
+        if (origMatch && origMatch[1]) {
+          const parsed = Math.round(parseFloat(origMatch[1]));
+          if (parsed > (price || 0)) {
+            originalPrice = parsed;
+            break;
+          }
         }
       }
     }
@@ -799,10 +848,14 @@ function extractPrice(html: string, url: string, variantInfo?: VariantInfo): {
       if (priceRange) {
         price = priceRange.min;
       } else {
+        // Bukalapak price patterns
         const pricePatterns = [
           /"price"\s*:\s*(\d+)/,
           /"discounted_price"\s*:\s*(\d+)/,
           /"min_price"\s*:\s*(\d+)/,
+          /"current_price"\s*:\s*(\d+)/,
+          /"deal_price"\s*:\s*(\d+)/,
+          /"amount"\s*:\s*(\d+)/,
         ];
         
         for (const pattern of pricePatterns) {
@@ -815,15 +868,35 @@ function extractPrice(html: string, url: string, variantInfo?: VariantInfo): {
             }
           }
         }
+        
+        // Try meta tags
+        if (!price) {
+          const metaPrice = html.match(/property="product:price:amount"[^>]*content="(\d+)"/i) ||
+                            html.match(/itemprop="price"[^>]*content="(\d+)"/i);
+          if (metaPrice && metaPrice[1]) {
+            const parsed = parseInt(metaPrice[1]);
+            if (parsed > 1000 && parsed < 100000000) {
+              price = parsed;
+            }
+          }
+        }
       }
       
       // Original price
-      const origMatch = /"original_price"\s*:\s*(\d+)/.exec(html) ||
-                        /"normal_price"\s*:\s*(\d+)/.exec(html);
-      if (origMatch && origMatch[1]) {
-        const parsed = parseInt(origMatch[1]);
-        if (parsed > (price || 0)) {
-          originalPrice = parsed;
+      const origPatterns = [
+        /"original_price"\s*:\s*(\d+)/,
+        /"normal_price"\s*:\s*(\d+)/,
+        /"list_price"\s*:\s*(\d+)/,
+      ];
+      
+      for (const pattern of origPatterns) {
+        const origMatch = pattern.exec(html);
+        if (origMatch && origMatch[1]) {
+          const parsed = parseInt(origMatch[1]);
+          if (parsed > (price || 0)) {
+            originalPrice = parsed;
+            break;
+          }
         }
       }
     }
@@ -922,18 +995,42 @@ function extractRating(html: string, url: string): { rating: number; totalReview
   try {
     // ============ SHOPEE ============
     if (url.includes('shopee')) {
-      const ratingMatch = /"rating"\s*:\s*([\d.]+)/.exec(html);
-      if (ratingMatch && ratingMatch[1]) {
-        const parsed = parseFloat(ratingMatch[1]);
-        if (parsed >= 0 && parsed <= 5) {
-          rating = parsed;
+      // Multiple rating patterns for Shopee
+      const ratingPatterns = [
+        /"rating"\s*:\s*([\d.]+)/,
+        /"item_rating"[\s\S]*?"rating_star"\s*:\s*([\d.]+)/,
+        /"rating_star"\s*:\s*([\d.]+)/,
+      ];
+      
+      for (const pattern of ratingPatterns) {
+        const ratingMatch = pattern.exec(html);
+        if (ratingMatch && ratingMatch[1]) {
+          const parsed = parseFloat(ratingMatch[1]);
+          if (parsed >= 0 && parsed <= 5) {
+            rating = parsed;
+            break;
+          }
         }
       }
-      const reviewMatch = /"rating_count"\s*:\s*\[?(\d+)/.exec(html) ||
-                          /"cmt_count"\s*:\s*(\d+)/.exec(html) ||
-                          /"sold"\s*:\s*(\d+)/.exec(html);
-      if (reviewMatch && reviewMatch[1]) {
-        totalReviews = parseInt(reviewMatch[1]);
+      
+      // Review count patterns
+      const reviewPatterns = [
+        /"rating_count"\s*:\s*\[?(\d+)/,
+        /"cmt_count"\s*:\s*(\d+)/,
+        /"rcount_with_image"\s*:\s*(\d+)/,
+        /"rcount_with_context"\s*:\s*(\d+)/,
+        /"sold"\s*:\s*(\d+)/,
+      ];
+      
+      for (const pattern of reviewPatterns) {
+        const reviewMatch = pattern.exec(html);
+        if (reviewMatch && reviewMatch[1]) {
+          const count = parseInt(reviewMatch[1]);
+          if (count > 0) {
+            totalReviews = count;
+            break;
+          }
+        }
       }
     }
 
@@ -957,35 +1054,76 @@ function extractRating(html: string, url: string): { rating: number; totalReview
 
     // ============ LAZADA ============
     if (url.includes('lazada')) {
-      const ratingMatch = /"average"\s*:\s*([\d.]+)/.exec(html) ||
-                          /"ratingScore"\s*:\s*([\d.]+)/.exec(html);
-      if (ratingMatch && ratingMatch[1]) {
-        const parsed = parseFloat(ratingMatch[1]);
-        if (parsed >= 0 && parsed <= 5) {
-          rating = parsed;
+      // Multiple rating patterns for Lazada
+      const ratingPatterns = [
+        /"average"\s*:\s*([\d.]+)/,
+        /"ratingScore"\s*:\s*([\d.]+)/,
+        /"averageScore"\s*:\s*([\d.]+)/,
+        /"rating"\s*:\s*([\d.]+)/,
+      ];
+      
+      for (const pattern of ratingPatterns) {
+        const ratingMatch = pattern.exec(html);
+        if (ratingMatch && ratingMatch[1]) {
+          const parsed = parseFloat(ratingMatch[1]);
+          if (parsed >= 0 && parsed <= 5) {
+            rating = parsed;
+            break;
+          }
         }
       }
-      const reviewMatch = /"ratingCount"\s*:\s*(\d+)/.exec(html) ||
-                          /"reviewCount"\s*:\s*(\d+)/.exec(html);
-      if (reviewMatch && reviewMatch[1]) {
-        totalReviews = parseInt(reviewMatch[1]);
+      
+      // Review count patterns
+      const reviewPatterns = [
+        /"ratingCount"\s*:\s*(\d+)/,
+        /"reviewCount"\s*:\s*(\d+)/,
+        /"totalRatings"\s*:\s*(\d+)/,
+      ];
+      
+      for (const pattern of reviewPatterns) {
+        const reviewMatch = pattern.exec(html);
+        if (reviewMatch && reviewMatch[1]) {
+          totalReviews = parseInt(reviewMatch[1]);
+          break;
+        }
       }
     }
 
     // ============ BUKALAPAK ============
     if (url.includes('bukalapak')) {
-      const ratingMatch = /"average_rate"\s*:\s*([\d.]+)/.exec(html) ||
-                          /"rating"\s*:\s*([\d.]+)/.exec(html);
-      if (ratingMatch && ratingMatch[1]) {
-        const parsed = parseFloat(ratingMatch[1]);
-        if (parsed >= 0 && parsed <= 5) {
-          rating = parsed;
+      // Multiple rating patterns for Bukalapak
+      const ratingPatterns = [
+        /"average_rate"\s*:\s*([\d.]+)/,
+        /"rating"\s*:\s*([\d.]+)/,
+        /"averageRating"\s*:\s*([\d.]+)/,
+        /"score"\s*:\s*([\d.]+)/,
+      ];
+      
+      for (const pattern of ratingPatterns) {
+        const ratingMatch = pattern.exec(html);
+        if (ratingMatch && ratingMatch[1]) {
+          const parsed = parseFloat(ratingMatch[1]);
+          if (parsed >= 0 && parsed <= 5) {
+            rating = parsed;
+            break;
+          }
         }
       }
-      const reviewMatch = /"review_count"\s*:\s*(\d+)/.exec(html) ||
-                          /"reviews_count"\s*:\s*(\d+)/.exec(html);
-      if (reviewMatch && reviewMatch[1]) {
-        totalReviews = parseInt(reviewMatch[1]);
+      
+      // Review count patterns
+      const reviewPatterns = [
+        /"review_count"\s*:\s*(\d+)/,
+        /"reviews_count"\s*:\s*(\d+)/,
+        /"total_reviews"\s*:\s*(\d+)/,
+        /"sold_count"\s*:\s*(\d+)/,
+      ];
+      
+      for (const pattern of reviewPatterns) {
+        const reviewMatch = pattern.exec(html);
+        if (reviewMatch && reviewMatch[1]) {
+          totalReviews = parseInt(reviewMatch[1]);
+          break;
+        }
       }
     }
 
@@ -1186,7 +1324,6 @@ Deno.serve(async (req) => {
 
     // Step 1: Use Firecrawl to scrape the actual product page for accurate data
     let scrapedImage: string | null = null;
-    let screenshotBase64: string | null = null;
     let scrapedPrice: { price: number; originalPrice: number | null; priceRange?: { min: number; max: number } } | null = null;
     let scrapedRating: { rating: number; totalReviews: number } | null = null;
     let scrapedName: string | null = null;
@@ -1194,6 +1331,19 @@ Deno.serve(async (req) => {
     
     if (FIRECRAWL_API_KEY) {
       console.log('Scraping product page with Firecrawl...');
+      
+      // Platform-specific settings
+      const platformSettings: Record<string, { waitFor: number; useMobile?: boolean }> = {
+        shopee: { waitFor: 8000, useMobile: true }, // Shopee needs longer wait and mobile UA works better
+        lazada: { waitFor: 8000 },
+        bukalapak: { waitFor: 6000 },
+        tokopedia: { waitFor: 5000 },
+        blibli: { waitFor: 5000 },
+        unknown: { waitFor: 5000 },
+      };
+      
+      const settings = platformSettings[platform] || platformSettings.unknown;
+      
       try {
         // First try to get HTML for data extraction
         const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
@@ -1204,47 +1354,72 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             url: url,
-            formats: ['rawHtml', 'screenshot'],
+            formats: ['rawHtml'],
             onlyMainContent: false,
-            waitFor: 5000, // Wait longer for JS to load product data
+            waitFor: settings.waitFor,
+            // Use mobile view for Shopee as it sometimes bypasses restrictions
+            ...(settings.useMobile ? { mobile: true } : {}),
           }),
         });
 
         if (scrapeResponse.ok) {
           const scrapeData = await scrapeResponse.json();
           const html = scrapeData.data?.rawHtml || scrapeData.rawHtml || '';
-          screenshotBase64 = scrapeData.data?.screenshot || scrapeData.screenshot || null;
           
-          console.log('Firecrawl scrape successful');
+          console.log('Firecrawl scrape successful for', platform);
           console.log('HTML length:', html.length);
-          console.log('Screenshot available:', !!screenshotBase64);
+          
+          // Check if we got blocked (login page, captcha, etc.)
+          const isBlocked = html.includes('login') && html.includes('password') && html.length < 50000;
+          const isCaptcha = html.includes('captcha') || html.includes('verify');
+          
+          if (isBlocked || isCaptcha) {
+            console.log('Detected blocking mechanism:', isBlocked ? 'login page' : 'captcha');
+          }
           
           // Extract ALL product data from HTML for accuracy
-          if (html) {
+          if (html && html.length > 1000) {
             scrapedImage = extractProductImage(html, url);
             
             // Extract variants FIRST to help with price extraction
             variantInfo = extractVariants(html, url);
-            console.log('Variant info:', variantInfo);
+            console.log('Variant info:', JSON.stringify(variantInfo));
             
             // Extract price with variant info for accurate pricing
             scrapedPrice = extractPrice(html, url, variantInfo);
             scrapedRating = extractRating(html, url);
             scrapedName = extractProductName(html, url);
             
-            console.log('Scraped data - Price:', scrapedPrice, 'Rating:', scrapedRating, 'Name:', scrapedName, 'Variants:', variantInfo?.hasVariants);
+            console.log('Scraped data summary:', {
+              platform,
+              hasPrice: !!scrapedPrice,
+              price: scrapedPrice?.price,
+              hasRating: !!scrapedRating,
+              rating: scrapedRating?.rating,
+              hasName: !!scrapedName,
+              hasVariants: variantInfo?.hasVariants,
+              hasImage: !!scrapedImage,
+            });
+          } else {
+            console.log('HTML too short or empty, skipping extraction');
           }
           
           if (scrapedImage) {
-            console.log('Successfully extracted product image:', scrapedImage);
+            console.log('Successfully extracted product image');
           } else {
             // DO NOT use screenshot as product image - it shows the entire page, not just the product
-            // Instead, we'll use a proper placeholder later
-            console.log('No product image found - will use placeholder (screenshot not suitable for product image)');
+            console.log('No product image found - will use styled placeholder');
           }
         } else {
           const errorText = await scrapeResponse.text();
           console.error('Firecrawl scrape failed:', scrapeResponse.status, errorText);
+          
+          // Log specific error for debugging
+          if (scrapeResponse.status === 403) {
+            console.log('Platform may be blocking scraping requests');
+          } else if (scrapeResponse.status === 429) {
+            console.log('Rate limited by Firecrawl');
+          }
         }
       } catch (scrapeError) {
         console.error('Firecrawl error:', scrapeError);
