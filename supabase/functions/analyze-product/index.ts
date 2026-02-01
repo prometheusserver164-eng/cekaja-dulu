@@ -5,146 +5,281 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// Check if image URL is a valid product image (not UI element, logo, etc.)
+function isValidProductImage(imageUrl: string, platform: string): boolean {
+  if (!imageUrl || imageUrl.length < 10) return false;
+  
+  // Must be a valid URL
+  if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) return false;
+  
+  // Common patterns to EXCLUDE (UI elements, logos, banners)
+  const excludePatterns = [
+    /logo/i,
+    /banner/i,
+    /icon/i,
+    /favicon/i,
+    /avatar/i,
+    /profile/i,
+    /wallet/i,
+    /voucher/i,
+    /promo/i,
+    /shopee-xtra/i,
+    /shopeemobile\.com/i,
+    /deo\./i,
+    /placeholder/i,
+    /loading/i,
+    /spinner/i,
+    /default/i,
+    /empty/i,
+    /no-image/i,
+    /noimage/i,
+    /blank/i,
+    /static.*assets/i,
+    /ui.*assets/i,
+    /assets.*ui/i,
+    /common.*assets/i,
+    /assets.*common/i,
+    /\.svg$/i,
+    /\.gif$/i,
+    /1x1/i,
+    /pixel/i,
+    /tracking/i,
+    /analytics/i,
+    /badge/i,
+    /label/i,
+    /tag/i,
+    /flash-sale/i,
+    /campaign/i,
+    /header/i,
+    /footer/i,
+    /nav/i,
+    /menu/i,
+    /search/i,
+    /cart/i,
+    /checkout/i,
+  ];
+  
+  for (const pattern of excludePatterns) {
+    if (pattern.test(imageUrl)) {
+      console.log('Image excluded by pattern:', pattern.toString(), imageUrl.substring(0, 100));
+      return false;
+    }
+  }
+  
+  // Platform-specific CDN validation - REQUIRE product image CDN
+  if (platform === 'shopee') {
+    // Shopee product images must be from susercontent.com
+    if (!imageUrl.includes('susercontent.com')) return false;
+    // Must be a file path (product images)
+    if (!imageUrl.includes('/file/') && !imageUrl.includes('/product/')) return false;
+  }
+  
+  if (platform === 'tokopedia') {
+    // Tokopedia product images from images.tokopedia.net
+    if (!imageUrl.includes('tokopedia.net') && !imageUrl.includes('tokopedia.com')) return false;
+  }
+  
+  if (platform === 'lazada') {
+    // Lazada product images
+    if (!imageUrl.includes('lazada') && !imageUrl.includes('alicdn')) return false;
+  }
+  
+  if (platform === 'bukalapak') {
+    // Bukalapak product images
+    if (!imageUrl.includes('bukalapak') && !imageUrl.includes('s3')) return false;
+  }
+  
+  if (platform === 'blibli') {
+    // Blibli product images
+    if (!imageUrl.includes('blibli') && !imageUrl.includes('static.bmdstatic')) return false;
+  }
+  
+  // Check minimum expected size (product images usually have size params)
+  // Very small images are likely icons
+  const sizeMatch = imageUrl.match(/[_x](\d+)/);
+  if (sizeMatch) {
+    const size = parseInt(sizeMatch[1]);
+    if (size < 50) {
+      console.log('Image too small:', size, imageUrl.substring(0, 100));
+      return false;
+    }
+  }
+  
+  return true;
+}
+
 // Extract product image from scraped HTML
 function extractProductImage(html: string, url: string): string | null {
+  // Detect platform
+  let platform = 'unknown';
+  if (url.includes('shopee')) platform = 'shopee';
+  else if (url.includes('tokopedia')) platform = 'tokopedia';
+  else if (url.includes('lazada')) platform = 'lazada';
+  else if (url.includes('bukalapak')) platform = 'bukalapak';
+  else if (url.includes('blibli')) platform = 'blibli';
+  
+  const candidates: string[] = [];
+  
   try {
     // ============ SHOPEE ============
-    if (url.includes('shopee')) {
-      // Try og:image first - but only if it's from product CDN (susercontent)
+    if (platform === 'shopee') {
+      // Method 1: og:image from product CDN
       const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
                       html.match(/content="([^"]+)"[^>]*property="og:image"/i);
       if (ogMatch && ogMatch[1]) {
-        const imageUrl = ogMatch[1];
-        if (imageUrl.includes('susercontent.com') && 
-            !imageUrl.includes('shopee-xtra') && 
-            !imageUrl.includes('banner') &&
-            !imageUrl.includes('logo')) {
-          console.log('Found Shopee og:image from CDN:', imageUrl);
-          return imageUrl;
+        candidates.push(ogMatch[1]);
+      }
+
+      // Method 2: Product images in JSON data - primary_image or images array
+      const primaryImageMatch = html.match(/"primary_image"\s*:\s*"([^"]+)"/);
+      if (primaryImageMatch && primaryImageMatch[1]) {
+        // Construct full URL
+        let imgUrl = primaryImageMatch[1];
+        if (!imgUrl.startsWith('http')) {
+          imgUrl = `https://down-id.img.susercontent.com/${imgUrl}`;
+        }
+        candidates.push(imgUrl);
+      }
+      
+      // Method 3: images array in JSON
+      const imagesArrayMatch = html.match(/"images"\s*:\s*\[([^\]]+)\]/);
+      if (imagesArrayMatch && imagesArrayMatch[1]) {
+        const imageIds = imagesArrayMatch[1].match(/"([a-f0-9]{32})"/g);
+        if (imageIds && imageIds.length > 0) {
+          const firstImageId = imageIds[0].replace(/"/g, '');
+          candidates.push(`https://down-id.img.susercontent.com/file/${firstImageId}`);
         }
       }
 
-      // Try to find product images in JSON data
-      const jsonImagePattern = /"image"\s*:\s*"(https?:\/\/[^"]+susercontent\.com\/file\/[^"]+)"/g;
+      // Method 4: Any susercontent product images
+      const jsonImagePattern = /"image"\s*:\s*"(https?:\/\/[^"]+susercontent\.com\/[^"]+)"/g;
       let match;
       while ((match = jsonImagePattern.exec(html)) !== null) {
-        const imageUrl = match[1];
-        if (imageUrl && 
-            !imageUrl.includes('shopee-xtra') && 
-            !imageUrl.includes('banner') && 
-            !imageUrl.includes('wallet') &&
-            !imageUrl.includes('promo') &&
-            !imageUrl.includes('voucher') &&
-            !imageUrl.includes('icon')) {
-          console.log('Found Shopee JSON product image:', imageUrl);
-          return imageUrl;
-        }
+        candidates.push(match[1]);
       }
-      
-      console.log('Shopee: Could not find product image in HTML, will use screenshot');
-      return null;
     }
 
     // ============ TOKOPEDIA ============
-    if (url.includes('tokopedia')) {
+    if (platform === 'tokopedia') {
+      // Method 1: og:image with tokopedia.net
       const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+tokopedia\.net[^"]+)"/i) ||
                       html.match(/content="([^"]+tokopedia\.net[^"]+)"[^>]*property="og:image"/i);
       if (ogMatch && ogMatch[1]) {
-        console.log('Found Tokopedia og:image:', ogMatch[1]);
-        return ogMatch[1];
+        candidates.push(ogMatch[1]);
       }
 
-      const jsonImagePattern = /"image"\s*:\s*"(https?:\/\/images\.tokopedia\.net[^"]+)"/g;
-      let match;
-      while ((match = jsonImagePattern.exec(html)) !== null) {
-        console.log('Found Tokopedia JSON image:', match[1]);
-        return match[1];
+      // Method 2: JSON image patterns
+      const jsonPatterns = [
+        /"imageOriginal"\s*:\s*"(https?:\/\/images\.tokopedia\.net[^"]+)"/g,
+        /"image"\s*:\s*"(https?:\/\/images\.tokopedia\.net[^"]+)"/g,
+        /"thumbnailURL"\s*:\s*"(https?:\/\/images\.tokopedia\.net[^"]+)"/g,
+        /"picture"\s*:\s*\{[^}]*"original"\s*:\s*"(https?:\/\/images\.tokopedia\.net[^"]+)"/g,
+      ];
+      
+      for (const pattern of jsonPatterns) {
+        let match;
+        while ((match = pattern.exec(html)) !== null) {
+          candidates.push(match[1]);
+        }
       }
     }
 
     // ============ LAZADA ============
-    if (url.includes('lazada')) {
+    if (platform === 'lazada') {
+      // Method 1: og:image
       const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
                       html.match(/content="([^"]+)"[^>]*property="og:image"/i);
       if (ogMatch && ogMatch[1]) {
-        const imageUrl = ogMatch[1];
-        if (!imageUrl.includes('logo') && !imageUrl.includes('banner')) {
-          console.log('Found Lazada og:image:', imageUrl);
-          return imageUrl;
-        }
+        candidates.push(ogMatch[1]);
       }
       
-      // Lazada images in JSON
-      const jsonImagePattern = /"image"\s*:\s*"(https?:\/\/[^"]+lazada[^"]+\/images\/[^"]+)"/g;
-      let match;
-      while ((match = jsonImagePattern.exec(html)) !== null) {
-        console.log('Found Lazada JSON image:', match[1]);
-        return match[1];
+      // Method 2: JSON patterns for Lazada
+      const jsonPatterns = [
+        /"image"\s*:\s*"(https?:\/\/[^"]+(?:lazada|alicdn)[^"]+)"/g,
+        /"gallery"\s*:\s*\["(https?:\/\/[^"]+)"/g,
+      ];
+      
+      for (const pattern of jsonPatterns) {
+        let match;
+        while ((match = pattern.exec(html)) !== null) {
+          candidates.push(match[1]);
+        }
       }
     }
 
     // ============ BUKALAPAK ============
-    if (url.includes('bukalapak')) {
+    if (platform === 'bukalapak') {
+      // Method 1: og:image
       const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
                       html.match(/content="([^"]+)"[^>]*property="og:image"/i);
       if (ogMatch && ogMatch[1]) {
-        const imageUrl = ogMatch[1];
-        if (!imageUrl.includes('logo') && !imageUrl.includes('banner')) {
-          console.log('Found Bukalapak og:image:', imageUrl);
-          return imageUrl;
-        }
+        candidates.push(ogMatch[1]);
       }
       
-      // Bukalapak images often in s3/bukalapak-prd-*
-      const jsonImagePattern = /"(?:small_url|large_url|medium_url)"\s*:\s*"(https?:\/\/[^"]+bukalapak[^"]+)"/g;
-      let match;
-      while ((match = jsonImagePattern.exec(html)) !== null) {
-        console.log('Found Bukalapak JSON image:', match[1]);
-        return match[1];
+      // Method 2: Bukalapak image patterns
+      const jsonPatterns = [
+        /"large_url"\s*:\s*"(https?:\/\/[^"]+)"/g,
+        /"medium_url"\s*:\s*"(https?:\/\/[^"]+)"/g,
+        /"small_url"\s*:\s*"(https?:\/\/[^"]+)"/g,
+      ];
+      
+      for (const pattern of jsonPatterns) {
+        let match;
+        while ((match = pattern.exec(html)) !== null) {
+          candidates.push(match[1]);
+        }
       }
     }
 
     // ============ BLIBLI ============
-    if (url.includes('blibli')) {
+    if (platform === 'blibli') {
+      // Method 1: og:image
       const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
                       html.match(/content="([^"]+)"[^>]*property="og:image"/i);
       if (ogMatch && ogMatch[1]) {
-        const imageUrl = ogMatch[1];
-        if (!imageUrl.includes('logo') && !imageUrl.includes('banner')) {
-          console.log('Found Blibli og:image:', imageUrl);
-          return imageUrl;
-        }
+        candidates.push(ogMatch[1]);
       }
       
-      // Blibli CDN images
-      const jsonImagePattern = /"(?:images?|imageUrl)"\s*:\s*"(https?:\/\/[^"]+blibli[^"]+)"/g;
-      let match;
-      while ((match = jsonImagePattern.exec(html)) !== null) {
-        if (!match[1].includes('logo') && !match[1].includes('banner')) {
-          console.log('Found Blibli JSON image:', match[1]);
-          return match[1];
+      // Method 2: Blibli image patterns
+      const jsonPatterns = [
+        /"imageUrl"\s*:\s*"(https?:\/\/[^"]+)"/g,
+        /"images"\s*:\s*\["(https?:\/\/[^"]+)"/g,
+      ];
+      
+      for (const pattern of jsonPatterns) {
+        let match;
+        while ((match = pattern.exec(html)) !== null) {
+          candidates.push(match[1]);
         }
       }
     }
 
     // ============ GENERIC FALLBACK ============
-    const ogImageMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
-                         html.match(/content="([^"]+)"[^>]*property="og:image"/i);
-    if (ogImageMatch && ogImageMatch[1]) {
-      const imageUrl = ogImageMatch[1];
-      if (!imageUrl.includes('logo') && 
-          !imageUrl.includes('banner') &&
-          !imageUrl.includes('shopeemobile.com') &&
-          !imageUrl.includes('deo.')) {
-        console.log('Found generic og:image:', imageUrl);
-        return imageUrl;
+    if (platform === 'unknown') {
+      const ogMatch = html.match(/property="og:image"[^>]*content="([^"]+)"/i) ||
+                      html.match(/content="([^"]+)"[^>]*property="og:image"/i);
+      if (ogMatch && ogMatch[1]) {
+        candidates.push(ogMatch[1]);
       }
     }
+    
+    // Validate and return first valid candidate
+    console.log(`Found ${candidates.length} image candidates for ${platform}`);
+    
+    for (const candidate of candidates) {
+      if (isValidProductImage(candidate, platform)) {
+        console.log('Valid product image found:', candidate.substring(0, 100));
+        return candidate;
+      }
+    }
+    
+    console.log('No valid product image found from candidates');
+    
   } catch (error) {
     console.error('Error extracting product image:', error);
   }
 
-  console.log('Could not find product image in HTML');
+  console.log('Could not find product image in HTML - will use placeholder (NOT screenshot)');
   return null;
 }
 
@@ -1102,10 +1237,10 @@ Deno.serve(async (req) => {
           
           if (scrapedImage) {
             console.log('Successfully extracted product image:', scrapedImage);
-          } else if (screenshotBase64) {
-            console.log('Using screenshot as fallback image');
-            // Convert base64 to data URL
-            scrapedImage = `data:image/png;base64,${screenshotBase64}`;
+          } else {
+            // DO NOT use screenshot as product image - it shows the entire page, not just the product
+            // Instead, we'll use a proper placeholder later
+            console.log('No product image found - will use placeholder (screenshot not suitable for product image)');
           }
         } else {
           const errorText = await scrapeResponse.text();
@@ -1265,13 +1400,26 @@ Jangan berikan teks apapun di luar JSON. Langsung mulai dengan { dan akhiri deng
       };
     }
 
-    // Determine the final image URL
+    // Determine the final image URL - NEVER use screenshot as product image
     let finalImage = scrapedImage;
     
-    // If no image was scraped, use a placeholder with product name
+    // If no image was scraped, use a styled placeholder based on platform
     if (!finalImage) {
-      const productName = analysisData.product?.name || platform;
-      finalImage = `https://placehold.co/400x400/1a1a2e/ffffff?text=${encodeURIComponent(productName.substring(0, 20))}`;
+      const productName = analysisData.product?.name || 'Product';
+      // Create a clean, styled placeholder that looks intentional
+      const platformColors: Record<string, string> = {
+        tokopedia: '00AA5B',
+        shopee: 'EE4D2D', 
+        lazada: '0F1689',
+        bukalapak: 'E31E52',
+        blibli: '0095DA',
+        unknown: '6B7280'
+      };
+      const bgColor = platformColors[platform] || platformColors.unknown;
+      // Use first 15 chars of product name to keep it readable
+      const shortName = productName.substring(0, 15).replace(/[^a-zA-Z0-9\s]/g, '');
+      finalImage = `https://placehold.co/400x400/${bgColor}/ffffff?text=${encodeURIComponent(shortName || platform)}`;
+      console.log('Using styled placeholder image:', finalImage);
     }
 
     // PRIORITIZE scraped data over Perplexity data for accuracy
