@@ -19,6 +19,7 @@ export interface Product {
   priceRange?: PriceRange; // For products with variants
   rating: number;
   totalReviews: number;
+  soldCount?: number; // Number of items sold
   platform: 'tokopedia' | 'shopee' | 'bukalapak' | 'lazada' | 'blibli';
   category: string;
   seller: string;
