@@ -1192,46 +1192,272 @@ function extractRating(html: string, url: string): { rating: number; totalReview
   return null;
 }
 
-// Extract product name from HTML
-function extractProductName(html: string, url: string): string | null {
-  try {
-    // Try og:title first
-    const ogTitleMatch = html.match(/property="og:title"[^>]*content="([^"]+)"/i) ||
-                         html.match(/content="([^"]+)"[^>]*property="og:title"/i);
-    if (ogTitleMatch && ogTitleMatch[1]) {
-      let title = ogTitleMatch[1];
-      // Clean up common suffixes for all platforms
-      title = title.replace(/\s*[-|]\s*(Shopee|Tokopedia|Lazada|Bukalapak|Blibli|Indonesia).*$/i, '');
-      title = title.replace(/\s*\|\s*$/i, ''); // Remove trailing pipe
-      if (title.length > 5) {
-        console.log('Extracted product name from og:title:', title);
-        return title;
-      }
-    }
+// Patterns that indicate we got a blocked/login/error page instead of product page
+const BLOCKED_PAGE_PATTERNS = [
+  /^login/i,
+  /masuk.*akun/i,
+  /^recaptcha$/i,
+  /^captcha$/i,
+  /^verify/i,
+  /^verifikasi/i,
+  /^www\./i,
+  /^https?:\/\//i,
+  /\.com$/i,
+  /\.co\.id$/i,
+  /not found/i,
+  /404/i,
+  /error/i,
+  /access denied/i,
+  /forbidden/i,
+  /silakan login/i,
+  /please login/i,
+  /sign in/i,
+  /daftar sekarang/i,
+  /berbelanja/i,
+  /mulai belanja/i,
+];
 
-    // Try meta title
-    const titleMatch = html.match(/<title[^>]*>([^<]+)</i);
-    if (titleMatch && titleMatch[1]) {
-      let title = titleMatch[1];
-      title = title.replace(/\s*[-|]\s*(Shopee|Tokopedia|Lazada|Bukalapak|Blibli|Indonesia).*$/i, '');
-      title = title.replace(/\s*\|\s*$/i, '');
-      if (title.length > 5) {
-        console.log('Extracted product name from title:', title);
-        return title;
+function isValidProductName(name: string): boolean {
+  if (!name || name.length < 3) return false;
+  if (name.length > 300) return false;
+  
+  // Check against blocked patterns
+  for (const pattern of BLOCKED_PAGE_PATTERNS) {
+    if (pattern.test(name.trim())) {
+      console.log('Product name matches blocked pattern:', pattern.toString(), name);
+      return false;
+    }
+  }
+  
+  // Name should have at least some meaningful content (not just special chars)
+  const alphanumCount = (name.match(/[a-zA-Z0-9]/g) || []).length;
+  if (alphanumCount < 3) return false;
+  
+  return true;
+}
+
+// Detect if we got a blocked page (login, captcha, error)
+function isBlockedPage(html: string): { blocked: boolean; reason: string } {
+  // Check for login page indicators
+  const loginIndicators = [
+    /login.*form|form.*login/i,
+    /input.*password|password.*input/i,
+    /masuk.*akun|akun.*masuk/i,
+    /silakan.*login|login.*silakan/i,
+    /Login sekarang untuk mulai berbelanja/i,
+    /Daftar dan login untuk berbelanja/i,
+  ];
+  
+  for (const pattern of loginIndicators) {
+    if (pattern.test(html)) {
+      return { blocked: true, reason: 'login_page' };
+    }
+  }
+  
+  // Check for captcha
+  const captchaIndicators = [
+    /<title[^>]*>reCAPTCHA<\/title>/i,
+    /class="g-recaptcha"/i,
+    /captcha-container/i,
+    /verify.*human/i,
+    /bukan robot/i,
+  ];
+  
+  for (const pattern of captchaIndicators) {
+    if (pattern.test(html)) {
+      return { blocked: true, reason: 'captcha' };
+    }
+  }
+  
+  // Check for error pages
+  const errorIndicators = [
+    /<title[^>]*>404/i,
+    /<title[^>]*>Error/i,
+    /page not found/i,
+    /halaman tidak ditemukan/i,
+    /access denied/i,
+    /forbidden/i,
+  ];
+  
+  for (const pattern of errorIndicators) {
+    if (pattern.test(html)) {
+      return { blocked: true, reason: 'error_page' };
+    }
+  }
+  
+  return { blocked: false, reason: '' };
+}
+
+// Extract product name from URL as fallback
+function extractProductNameFromUrl(url: string): string | null {
+  try {
+    // Extract the product slug from URL
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/').filter(p => p.length > 0);
+    
+    // Find the product slug (usually the longest meaningful part)
+    let productSlug = '';
+    
+    for (const part of pathParts.reverse()) {
+      // Skip common non-product parts
+      if (/^(p|products?|item|i|detail|\d+)$/i.test(part)) continue;
+      if (/^i\.\d+\.\d+$/.test(part)) continue; // Shopee item ID pattern
+      
+      // Clean up the slug
+      let cleaned = part
+        .split(/[-_.]/)
+        // Filter out: pure numbers, product IDs (alphanumeric codes), common stop words
+        .filter(s => {
+          if (s.length === 0) return false;
+          if (/^\d+$/.test(s)) return false; // Pure numbers
+          if (/^[a-z0-9]{5,10}$/i.test(s) && /\d/.test(s) && /[a-z]/i.test(s)) return false; // Alphanumeric IDs like "34xw3e4"
+          if (/^i\d+$/.test(s)) return false; // Lazada ID pattern like "i2959626489"
+          if (/^html?$/.test(s)) return false; // File extensions
+          return true;
+        })
+        .join(' ');
+        
+      if (cleaned.length > 10) {
+        productSlug = cleaned;
+        break;
       }
     }
     
-    // Try JSON-LD
-    const jsonLdMatch = html.match(/"name"\s*:\s*"([^"]+)"/);
-    if (jsonLdMatch && jsonLdMatch[1] && jsonLdMatch[1].length > 5) {
-      console.log('Extracted product name from JSON-LD:', jsonLdMatch[1]);
-      return jsonLdMatch[1];
+    // Additional cleanup: remove "jual" prefix if it starts with it
+    let cleanedSlug = productSlug.trim();
+    cleanedSlug = cleanedSlug.replace(/^jual\s+/i, '');
+    
+    if (cleanedSlug && cleanedSlug.length > 5) {
+      // Capitalize first letter of each word
+      const formatted = cleanedSlug.replace(/\b\w/g, c => c.toUpperCase());
+      console.log('Extracted product name from URL:', formatted);
+      return formatted;
     }
+  } catch (e) {
+    console.error('Error extracting name from URL:', e);
+  }
+  return null;
+}
+
+// Extract product name from HTML
+function extractProductName(html: string, url: string): string | null {
+  try {
+    // First check if this is a blocked page
+    const blockCheck = isBlockedPage(html);
+    if (blockCheck.blocked) {
+      console.log('Blocked page detected:', blockCheck.reason);
+      // Fall back to URL extraction
+      return extractProductNameFromUrl(url);
+    }
+    
+    let extractedName: string | null = null;
+    
+    // Platform-specific extraction for more accurate names
+    if (url.includes('shopee')) {
+      // Shopee: Try JSON data first (most accurate)
+      const namePatterns = [
+        /"name"\s*:\s*"([^"]{10,200})"/,
+        /"item_basic"[^}]*"name"\s*:\s*"([^"]+)"/,
+        /"product_name"\s*:\s*"([^"]+)"/,
+      ];
+      for (const pattern of namePatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1] && isValidProductName(match[1])) {
+          extractedName = match[1];
+          console.log('Extracted Shopee product name from JSON:', extractedName);
+          break;
+        }
+      }
+    }
+    
+    if (url.includes('lazada')) {
+      // Lazada: Try JSON data
+      const namePatterns = [
+        /"name"\s*:\s*"([^"]{10,200})"/,
+        /"title"\s*:\s*"([^"]{10,200})"/,
+        /"productTitle"\s*:\s*"([^"]+)"/,
+      ];
+      for (const pattern of namePatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1] && isValidProductName(match[1])) {
+          extractedName = match[1];
+          console.log('Extracted Lazada product name from JSON:', extractedName);
+          break;
+        }
+      }
+    }
+    
+    if (url.includes('bukalapak')) {
+      // Bukalapak: Try JSON data
+      const namePatterns = [
+        /"name"\s*:\s*"([^"]{10,200})"/,
+        /"product_name"\s*:\s*"([^"]+)"/,
+        /"title"\s*:\s*"([^"]{10,200})"/,
+      ];
+      for (const pattern of namePatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1] && isValidProductName(match[1])) {
+          extractedName = match[1];
+          console.log('Extracted Bukalapak product name from JSON:', extractedName);
+          break;
+        }
+      }
+    }
+    
+    // If platform-specific extraction didn't work, try generic methods
+    if (!extractedName) {
+      // Try og:title first
+      const ogTitleMatch = html.match(/property="og:title"[^>]*content="([^"]+)"/i) ||
+                           html.match(/content="([^"]+)"[^>]*property="og:title"/i);
+      if (ogTitleMatch && ogTitleMatch[1]) {
+        let title = ogTitleMatch[1];
+        // Clean up common suffixes for all platforms
+        title = title.replace(/\s*[-|]\s*(Shopee|Tokopedia|Lazada|Bukalapak|Blibli|Indonesia).*$/i, '');
+        title = title.replace(/\s*\|\s*$/i, '');
+        if (isValidProductName(title)) {
+          extractedName = title;
+          console.log('Extracted product name from og:title:', extractedName);
+        }
+      }
+    }
+    
+    if (!extractedName) {
+      // Try meta title
+      const titleMatch = html.match(/<title[^>]*>([^<]+)</i);
+      if (titleMatch && titleMatch[1]) {
+        let title = titleMatch[1];
+        title = title.replace(/\s*[-|]\s*(Shopee|Tokopedia|Lazada|Bukalapak|Blibli|Indonesia).*$/i, '');
+        title = title.replace(/\s*\|\s*$/i, '');
+        if (isValidProductName(title)) {
+          extractedName = title;
+          console.log('Extracted product name from title:', extractedName);
+        }
+      }
+    }
+    
+    if (!extractedName) {
+      // Try JSON-LD with validation
+      const jsonLdMatch = html.match(/"name"\s*:\s*"([^"]+)"/);
+      if (jsonLdMatch && jsonLdMatch[1] && isValidProductName(jsonLdMatch[1])) {
+        extractedName = jsonLdMatch[1];
+        console.log('Extracted product name from JSON-LD:', extractedName);
+      }
+    }
+    
+    // Final validation
+    if (extractedName && isValidProductName(extractedName)) {
+      return extractedName;
+    }
+    
+    // Fall back to URL extraction if all else fails
+    console.log('No valid product name found in HTML, falling back to URL');
+    return extractProductNameFromUrl(url);
+    
   } catch (error) {
     console.error('Error extracting product name:', error);
   }
 
-  return null;
+  return extractProductNameFromUrl(url);
 }
 
 // Simple in-memory rate limiter
@@ -1599,12 +1825,34 @@ Jangan berikan teks apapun di luar JSON. Langsung mulai dengan { dan akhiri deng
 
     // PRIORITIZE scraped data over Perplexity data for accuracy
     // Scraped data comes directly from the marketplace, so it's more accurate
+    
+    // Determine final product name with validation
+    let finalProductName: string;
+    
+    // Priority 1: Scraped name (if valid)
+    if (scrapedName && isValidProductName(scrapedName)) {
+      finalProductName = scrapedName;
+      console.log('Using scraped product name:', finalProductName);
+    }
+    // Priority 2: Perplexity name (if valid)
+    else if (analysisData.product?.name && isValidProductName(analysisData.product.name)) {
+      finalProductName = analysisData.product.name;
+      console.log('Using Perplexity product name:', finalProductName);
+    }
+    // Priority 3: Extract from URL
+    else {
+      finalProductName = extractProductNameFromUrl(url) || 'Produk';
+      console.log('Using URL-extracted product name:', finalProductName);
+    }
+    
     const finalProduct = {
       ...analysisData.product,
       id: crypto.randomUUID(),
       platform,
       url,
       image: finalImage,
+      // Use validated product name
+      name: finalProductName,
       // Use scraped price if available (more accurate than Perplexity)
       price: scrapedPrice?.price || analysisData.product.price || 0,
       originalPrice: scrapedPrice?.originalPrice || analysisData.product.originalPrice || null,
@@ -1613,8 +1861,6 @@ Jangan berikan teks apapun di luar JSON. Langsung mulai dengan { dan akhiri deng
       // Use scraped rating if available
       rating: scrapedRating?.rating || analysisData.product.rating || 0,
       totalReviews: scrapedRating?.totalReviews || analysisData.product.totalReviews || 0,
-      // Use scraped name if available
-      name: scrapedName || analysisData.product.name,
       // Include variant information
       hasVariants: variantInfo?.hasVariants || false,
       variants: variantInfo?.variants || [],
