@@ -987,10 +987,17 @@ function extractPrice(html: string, url: string, variantInfo?: VariantInfo): {
   return null;
 }
 
-// Extract rating from HTML
-function extractRating(html: string, url: string): { rating: number; totalReviews: number } | null {
+// Extract rating, review count, and sold count from HTML
+interface RatingInfo {
+  rating: number;
+  totalReviews: number;
+  soldCount?: number;
+}
+
+function extractRating(html: string, url: string): RatingInfo | null {
   let rating: number | null = null;
   let totalReviews: number | null = null;
+  let soldCount: number | null = null;
 
   try {
     // ============ SHOPEE ============
@@ -1015,11 +1022,9 @@ function extractRating(html: string, url: string): { rating: number; totalReview
       
       // Review count patterns
       const reviewPatterns = [
-        /"rating_count"\s*:\s*\[?(\d+)/,
         /"cmt_count"\s*:\s*(\d+)/,
-        /"rcount_with_image"\s*:\s*(\d+)/,
+        /"rating_count"\s*:\s*\[?(\d+)/,
         /"rcount_with_context"\s*:\s*(\d+)/,
-        /"sold"\s*:\s*(\d+)/,
       ];
       
       for (const pattern of reviewPatterns) {
@@ -1028,6 +1033,24 @@ function extractRating(html: string, url: string): { rating: number; totalReview
           const count = parseInt(reviewMatch[1]);
           if (count > 0) {
             totalReviews = count;
+            break;
+          }
+        }
+      }
+      
+      // Sold count patterns for Shopee
+      const soldPatterns = [
+        /"sold"\s*:\s*(\d+)/,
+        /"historical_sold"\s*:\s*(\d+)/,
+        /"real_sold"\s*:\s*(\d+)/,
+      ];
+      
+      for (const pattern of soldPatterns) {
+        const soldMatch = pattern.exec(html);
+        if (soldMatch && soldMatch[1]) {
+          const count = parseInt(soldMatch[1]);
+          if (count > 0) {
+            soldCount = count;
             break;
           }
         }
@@ -1049,6 +1072,14 @@ function extractRating(html: string, url: string): { rating: number; totalReview
                           /"totalReview"\s*:\s*(\d+)/.exec(html);
       if (reviewMatch && reviewMatch[1]) {
         totalReviews = parseInt(reviewMatch[1]);
+      }
+      
+      // Sold count for Tokopedia
+      const soldMatch = /"countSold"\s*:\s*(\d+)/.exec(html) ||
+                        /"soldCount"\s*:\s*(\d+)/.exec(html) ||
+                        /"txSuccess"\s*:\s*(\d+)/.exec(html);
+      if (soldMatch && soldMatch[1]) {
+        soldCount = parseInt(soldMatch[1]);
       }
     }
 
@@ -1087,6 +1118,13 @@ function extractRating(html: string, url: string): { rating: number; totalReview
           break;
         }
       }
+      
+      // Sold count for Lazada
+      const soldMatch = /"itemSoldCntShow"\s*:\s*"?(\d+)"?/.exec(html) ||
+                        /"sold"\s*:\s*(\d+)/.exec(html);
+      if (soldMatch && soldMatch[1]) {
+        soldCount = parseInt(soldMatch[1]);
+      }
     }
 
     // ============ BUKALAPAK ============
@@ -1115,7 +1153,6 @@ function extractRating(html: string, url: string): { rating: number; totalReview
         /"review_count"\s*:\s*(\d+)/,
         /"reviews_count"\s*:\s*(\d+)/,
         /"total_reviews"\s*:\s*(\d+)/,
-        /"sold_count"\s*:\s*(\d+)/,
       ];
       
       for (const pattern of reviewPatterns) {
@@ -1124,6 +1161,13 @@ function extractRating(html: string, url: string): { rating: number; totalReview
           totalReviews = parseInt(reviewMatch[1]);
           break;
         }
+      }
+      
+      // Sold count for Bukalapak
+      const soldMatch = /"sold_count"\s*:\s*(\d+)/.exec(html) ||
+                        /"success_sold"\s*:\s*(\d+)/.exec(html);
+      if (soldMatch && soldMatch[1]) {
+        soldCount = parseInt(soldMatch[1]);
       }
     }
 
@@ -1141,6 +1185,12 @@ function extractRating(html: string, url: string): { rating: number; totalReview
                           /"reviewCount"\s*:\s*(\d+)/.exec(html);
       if (reviewMatch && reviewMatch[1]) {
         totalReviews = parseInt(reviewMatch[1]);
+      }
+      
+      // Sold count for Blibli
+      const soldMatch = /"soldCount"\s*:\s*(\d+)/.exec(html);
+      if (soldMatch && soldMatch[1]) {
+        soldCount = parseInt(soldMatch[1]);
       }
     }
 
@@ -1182,14 +1232,366 @@ function extractRating(html: string, url: string): { rating: number; totalReview
     }
 
     if (rating !== null) {
-      console.log('Extracted rating from HTML:', rating, 'Reviews:', totalReviews);
-      return { rating, totalReviews: totalReviews || 0 };
+      console.log('Extracted rating from HTML:', rating, 'Reviews:', totalReviews, 'Sold:', soldCount);
+      return { rating, totalReviews: totalReviews || 0, soldCount: soldCount || undefined };
     }
   } catch (error) {
     console.error('Error extracting rating:', error);
   }
   
   return null;
+}
+
+// Extract category from HTML
+function extractCategory(html: string, url: string): string | null {
+  try {
+    // ============ SHOPEE ============
+    if (url.includes('shopee')) {
+      // Look for category in breadcrumb or JSON data
+      const categoryPatterns = [
+        /"categories"\s*:\s*\[[\s\S]*?"display_name"\s*:\s*"([^"]+)"/,
+        /"category_name"\s*:\s*"([^"]+)"/,
+        /"catName"\s*:\s*"([^"]+)"/,
+      ];
+      
+      for (const pattern of categoryPatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1] && match[1].length > 2) {
+          console.log('Extracted Shopee category:', match[1]);
+          return match[1];
+        }
+      }
+    }
+
+    // ============ TOKOPEDIA ============
+    if (url.includes('tokopedia')) {
+      const categoryPatterns = [
+        /"categoryName"\s*:\s*"([^"]+)"/,
+        /"category"\s*:\s*"([^"]+)"/,
+        /"breadcrumbs"[\s\S]*?"name"\s*:\s*"([^"]+)"/,
+      ];
+      
+      for (const pattern of categoryPatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1] && match[1].length > 2) {
+          console.log('Extracted Tokopedia category:', match[1]);
+          return match[1];
+        }
+      }
+    }
+
+    // ============ LAZADA ============
+    if (url.includes('lazada')) {
+      const categoryPatterns = [
+        /"categoryName"\s*:\s*"([^"]+)"/,
+        /"category"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"/,
+        /"breadcrumb"[\s\S]*?"name"\s*:\s*"([^"]+)"/,
+      ];
+      
+      for (const pattern of categoryPatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1] && match[1].length > 2) {
+          console.log('Extracted Lazada category:', match[1]);
+          return match[1];
+        }
+      }
+    }
+
+    // ============ BUKALAPAK ============
+    if (url.includes('bukalapak')) {
+      const categoryPatterns = [
+        /"category"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"/,
+        /"category_name"\s*:\s*"([^"]+)"/,
+      ];
+      
+      for (const pattern of categoryPatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1] && match[1].length > 2) {
+          console.log('Extracted Bukalapak category:', match[1]);
+          return match[1];
+        }
+      }
+    }
+
+    // ============ BLIBLI ============
+    if (url.includes('blibli')) {
+      const categoryPatterns = [
+        /"categoryName"\s*:\s*"([^"]+)"/,
+        /"category"\s*:\s*"([^"]+)"/,
+      ];
+      
+      for (const pattern of categoryPatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1] && match[1].length > 2) {
+          console.log('Extracted Blibli category:', match[1]);
+          return match[1];
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error('Error extracting category:', error);
+  }
+  
+  return null;
+}
+
+// Extract seller name from HTML
+function extractSeller(html: string, url: string): string | null {
+  try {
+    // ============ SHOPEE ============
+    if (url.includes('shopee')) {
+      const sellerPatterns = [
+        /"shop_name"\s*:\s*"([^"]+)"/,
+        /"shopName"\s*:\s*"([^"]+)"/,
+        /"name"\s*:\s*"([^"]+)"[^}]*"shop_id"/,
+      ];
+      
+      for (const pattern of sellerPatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1] && match[1].length > 1) {
+          console.log('Extracted Shopee seller:', match[1]);
+          return match[1];
+        }
+      }
+    }
+
+    // ============ TOKOPEDIA ============
+    if (url.includes('tokopedia')) {
+      const sellerPatterns = [
+        /"shopName"\s*:\s*"([^"]+)"/,
+        /"shop"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"/,
+      ];
+      
+      for (const pattern of sellerPatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1] && match[1].length > 1) {
+          console.log('Extracted Tokopedia seller:', match[1]);
+          return match[1];
+        }
+      }
+    }
+
+    // ============ LAZADA ============
+    if (url.includes('lazada')) {
+      const sellerPatterns = [
+        /"sellerName"\s*:\s*"([^"]+)"/,
+        /"seller"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"/,
+        /"shopName"\s*:\s*"([^"]+)"/,
+      ];
+      
+      for (const pattern of sellerPatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1] && match[1].length > 1) {
+          console.log('Extracted Lazada seller:', match[1]);
+          return match[1];
+        }
+      }
+    }
+
+    // ============ BUKALAPAK ============
+    if (url.includes('bukalapak')) {
+      const sellerPatterns = [
+        /"store"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"/,
+        /"seller_name"\s*:\s*"([^"]+)"/,
+        /"store_name"\s*:\s*"([^"]+)"/,
+      ];
+      
+      for (const pattern of sellerPatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1] && match[1].length > 1) {
+          console.log('Extracted Bukalapak seller:', match[1]);
+          return match[1];
+        }
+      }
+    }
+
+    // ============ BLIBLI ============
+    if (url.includes('blibli')) {
+      const sellerPatterns = [
+        /"merchantName"\s*:\s*"([^"]+)"/,
+        /"storeName"\s*:\s*"([^"]+)"/,
+      ];
+      
+      for (const pattern of sellerPatterns) {
+        const match = pattern.exec(html);
+        if (match && match[1] && match[1].length > 1) {
+          console.log('Extracted Blibli seller:', match[1]);
+          return match[1];
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error('Error extracting seller:', error);
+  }
+  
+  return null;
+}
+
+// Extract real reviews from HTML
+interface ScrapedReview {
+  userName: string;
+  rating: number;
+  date: string;
+  content: string;
+  images?: string[];
+}
+
+function extractReviews(html: string, url: string): ScrapedReview[] {
+  const reviews: ScrapedReview[] = [];
+  
+  try {
+    // ============ SHOPEE ============
+    if (url.includes('shopee')) {
+      // Look for ratings array in JSON data
+      const ratingsMatch = html.match(/"ratings"\s*:\s*(\[[\s\S]*?\])(?=\s*[,}])/);
+      if (ratingsMatch) {
+        try {
+          // Extract individual reviews
+          const reviewBlocks = ratingsMatch[1].match(/\{[^{}]*"comment"[^{}]*\}/g) || [];
+          
+          for (const block of reviewBlocks.slice(0, 10)) {
+            const userMatch = block.match(/"author_username"\s*:\s*"([^"]+)"/) ||
+                              block.match(/"username"\s*:\s*"([^"]+)"/);
+            const ratingMatch = block.match(/"rating_star"\s*:\s*(\d+)/);
+            const contentMatch = block.match(/"comment"\s*:\s*"([^"]+)"/);
+            const timeMatch = block.match(/"ctime"\s*:\s*(\d+)/);
+            
+            if (userMatch && contentMatch && contentMatch[1].length > 5) {
+              reviews.push({
+                userName: userMatch[1] || 'Pembeli Shopee',
+                rating: ratingMatch ? parseInt(ratingMatch[1]) : 5,
+                date: timeMatch ? new Date(parseInt(timeMatch[1]) * 1000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                content: contentMatch[1],
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing Shopee reviews:', e);
+        }
+      }
+    }
+
+    // ============ TOKOPEDIA ============
+    if (url.includes('tokopedia')) {
+      const reviewsMatch = html.match(/"productReviews"\s*:\s*(\[[\s\S]*?\])(?=\s*[,}])/);
+      if (reviewsMatch) {
+        try {
+          const reviewBlocks = reviewsMatch[1].match(/\{[^{}]*"message"[^{}]*\}/g) || [];
+          
+          for (const block of reviewBlocks.slice(0, 10)) {
+            const userMatch = block.match(/"reviewerName"\s*:\s*"([^"]+)"/) ||
+                              block.match(/"name"\s*:\s*"([^"]+)"/);
+            const ratingMatch = block.match(/"rating"\s*:\s*(\d+)/);
+            const contentMatch = block.match(/"message"\s*:\s*"([^"]+)"/);
+            
+            if (userMatch && contentMatch && contentMatch[1].length > 5) {
+              reviews.push({
+                userName: userMatch[1] || 'Pembeli Tokopedia',
+                rating: ratingMatch ? parseInt(ratingMatch[1]) : 5,
+                date: new Date().toISOString().split('T')[0],
+                content: contentMatch[1],
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing Tokopedia reviews:', e);
+        }
+      }
+    }
+
+    // ============ LAZADA ============
+    if (url.includes('lazada')) {
+      const reviewsMatch = html.match(/"reviews"\s*:\s*(\[[\s\S]*?\])(?=\s*[,}])/);
+      if (reviewsMatch) {
+        try {
+          const reviewBlocks = reviewsMatch[1].match(/\{[^{}]*"reviewContent"[^{}]*\}/g) || [];
+          
+          for (const block of reviewBlocks.slice(0, 10)) {
+            const userMatch = block.match(/"buyerName"\s*:\s*"([^"]+)"/) ||
+                              block.match(/"reviewer"\s*:\s*"([^"]+)"/);
+            const ratingMatch = block.match(/"rating"\s*:\s*(\d+)/);
+            const contentMatch = block.match(/"reviewContent"\s*:\s*"([^"]+)"/);
+            
+            if (contentMatch && contentMatch[1].length > 5) {
+              reviews.push({
+                userName: userMatch ? userMatch[1] : 'Pembeli Lazada',
+                rating: ratingMatch ? parseInt(ratingMatch[1]) : 5,
+                date: new Date().toISOString().split('T')[0],
+                content: contentMatch[1],
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing Lazada reviews:', e);
+        }
+      }
+    }
+
+    // ============ BUKALAPAK ============
+    if (url.includes('bukalapak')) {
+      const reviewsMatch = html.match(/"reviews"\s*:\s*(\[[\s\S]*?\])(?=\s*[,}])/);
+      if (reviewsMatch) {
+        try {
+          const reviewBlocks = reviewsMatch[1].match(/\{[^{}]*"content"[^{}]*\}/g) || [];
+          
+          for (const block of reviewBlocks.slice(0, 10)) {
+            const userMatch = block.match(/"sender_name"\s*:\s*"([^"]+)"/) ||
+                              block.match(/"reviewer"\s*:\s*"([^"]+)"/);
+            const ratingMatch = block.match(/"rate"\s*:\s*(\d+)/) ||
+                                block.match(/"rating"\s*:\s*(\d+)/);
+            const contentMatch = block.match(/"content"\s*:\s*"([^"]+)"/);
+            
+            if (contentMatch && contentMatch[1].length > 5) {
+              reviews.push({
+                userName: userMatch ? userMatch[1] : 'Pembeli Bukalapak',
+                rating: ratingMatch ? parseInt(ratingMatch[1]) : 5,
+                date: new Date().toISOString().split('T')[0],
+                content: contentMatch[1],
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing Bukalapak reviews:', e);
+        }
+      }
+    }
+
+    // ============ BLIBLI ============
+    if (url.includes('blibli')) {
+      const reviewsMatch = html.match(/"reviews"\s*:\s*(\[[\s\S]*?\])(?=\s*[,}])/);
+      if (reviewsMatch) {
+        try {
+          const reviewBlocks = reviewsMatch[1].match(/\{[^{}]*"content"[^{}]*\}/g) || [];
+          
+          for (const block of reviewBlocks.slice(0, 10)) {
+            const userMatch = block.match(/"reviewerName"\s*:\s*"([^"]+)"/);
+            const ratingMatch = block.match(/"rating"\s*:\s*(\d+)/);
+            const contentMatch = block.match(/"content"\s*:\s*"([^"]+)"/);
+            
+            if (contentMatch && contentMatch[1].length > 5) {
+              reviews.push({
+                userName: userMatch ? userMatch[1] : 'Pembeli Blibli',
+                rating: ratingMatch ? parseInt(ratingMatch[1]) : 5,
+                date: new Date().toISOString().split('T')[0],
+                content: contentMatch[1],
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing Blibli reviews:', e);
+        }
+      }
+    }
+
+    console.log('Extracted', reviews.length, 'reviews from HTML');
+    
+  } catch (error) {
+    console.error('Error extracting reviews:', error);
+  }
+  
+  return reviews;
 }
 
 // Patterns that indicate we got a blocked/login/error page instead of product page
@@ -1551,8 +1953,11 @@ Deno.serve(async (req) => {
     // Step 1: Use Firecrawl to scrape the actual product page for accurate data
     let scrapedImage: string | null = null;
     let scrapedPrice: { price: number; originalPrice: number | null; priceRange?: { min: number; max: number } } | null = null;
-    let scrapedRating: { rating: number; totalReviews: number } | null = null;
+    let scrapedRating: RatingInfo | null = null;
     let scrapedName: string | null = null;
+    let scrapedCategory: string | null = null;
+    let scrapedSeller: string | null = null;
+    let scrapedReviews: ScrapedReview[] = [];
     let variantInfo: VariantInfo | null = null;
     
     if (FIRECRAWL_API_KEY) {
@@ -1616,13 +2021,22 @@ Deno.serve(async (req) => {
             scrapedRating = extractRating(html, url);
             scrapedName = extractProductName(html, url);
             
+            // Extract additional data: category, seller, reviews
+            scrapedCategory = extractCategory(html, url);
+            scrapedSeller = extractSeller(html, url);
+            scrapedReviews = extractReviews(html, url);
+            
             console.log('Scraped data summary:', {
               platform,
               hasPrice: !!scrapedPrice,
               price: scrapedPrice?.price,
               hasRating: !!scrapedRating,
               rating: scrapedRating?.rating,
+              soldCount: scrapedRating?.soldCount,
               hasName: !!scrapedName,
+              hasCategory: !!scrapedCategory,
+              hasSeller: !!scrapedSeller,
+              reviewCount: scrapedReviews.length,
               hasVariants: variantInfo?.hasVariants,
               hasImage: !!scrapedImage,
             });
@@ -1861,6 +2275,12 @@ Jangan berikan teks apapun di luar JSON. Langsung mulai dengan { dan akhiri deng
       // Use scraped rating if available
       rating: scrapedRating?.rating || analysisData.product.rating || 0,
       totalReviews: scrapedRating?.totalReviews || analysisData.product.totalReviews || 0,
+      // Use scraped sold count if available
+      soldCount: scrapedRating?.soldCount || 0,
+      // Use scraped category if available
+      category: scrapedCategory || analysisData.product.category || 'Produk',
+      // Use scraped seller if available
+      seller: scrapedSeller || analysisData.product.seller || 'Penjual',
       // Include variant information
       hasVariants: variantInfo?.hasVariants || false,
       variants: variantInfo?.variants || [],
@@ -1873,6 +2293,9 @@ Jangan berikan teks apapun di luar JSON. Langsung mulai dengan { dan akhiri deng
       priceRange: finalProduct.priceRange,
       rating: finalProduct.rating,
       totalReviews: finalProduct.totalReviews,
+      soldCount: finalProduct.soldCount,
+      category: finalProduct.category,
+      seller: finalProduct.seller,
       hasVariants: finalProduct.hasVariants,
       variants: finalProduct.variants,
       source: scrapedPrice ? 'scraped' : 'perplexity'
@@ -1880,8 +2303,23 @@ Jangan berikan teks apapun di luar JSON. Langsung mulai dengan { dan akhiri deng
 
     analysisData.product = finalProduct;
 
-    // Add IDs to reviews
-    if (analysisData.reviews) {
+    // Use scraped reviews if available, otherwise use Perplexity reviews
+    if (scrapedReviews.length > 0) {
+      console.log('Using', scrapedReviews.length, 'scraped reviews');
+      analysisData.reviews = scrapedReviews.map((review, index) => ({
+        id: `review-${index}`,
+        userName: review.userName,
+        rating: review.rating,
+        date: review.date,
+        content: review.content,
+        sentiment: review.rating >= 4 ? 'positive' : review.rating >= 3 ? 'neutral' : 'negative',
+        platform,
+        verified: true,
+        suspicious: false,
+        images: review.images || [],
+      }));
+    } else if (analysisData.reviews) {
+      // Add IDs to Perplexity reviews
       analysisData.reviews = analysisData.reviews.map((review: any, index: number) => ({
         ...review,
         id: `review-${index}`,

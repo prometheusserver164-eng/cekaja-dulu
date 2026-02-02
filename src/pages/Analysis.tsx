@@ -56,6 +56,8 @@ const Analysis = () => {
       ? rawData.product.rating : 0,
     totalReviews: typeof rawData.product?.totalReviews === 'number' && !isNaN(rawData.product.totalReviews)
       ? rawData.product.totalReviews : 0,
+    soldCount: typeof (rawData.product as any)?.soldCount === 'number' && !isNaN((rawData.product as any).soldCount)
+      ? (rawData.product as any).soldCount : 0,
     platform: rawData.product?.platform || 'tokopedia',
     category: rawData.product?.category || 'Uncategorized',
     seller: rawData.product?.seller || 'Unknown Seller',
@@ -202,6 +204,15 @@ const Analysis = () => {
                     <span className="text-muted-foreground">
                       ({(data.product.totalReviews || 0).toLocaleString('id-ID')} review)
                     </span>
+                    {safeProduct.soldCount > 0 && (
+                      <span className="text-muted-foreground">
+                        • {safeProduct.soldCount.toLocaleString('id-ID')} terjual
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-muted-foreground mb-2">
+                    <span>Toko: </span>
+                    <span className="font-medium text-foreground">{safeProduct.seller}</span>
                   </div>
                   <div className="mb-4">
                     {/* Price Display */}
